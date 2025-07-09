@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/db.config';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { HubsModule } from './hubs/hubs.module';
+import { AccDocsUploadModule } from './acc-docs-upload/acc-docs-upload.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { AuthModule } from './auth/auth.module';
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
     AuthModule,
+    HubsModule,
+    AccDocsUploadModule,
   ],
 })
 export class AppModule {}
