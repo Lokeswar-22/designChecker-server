@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { typeOrmConfig } from './config/db.config';
+import { DbConnectionModule } from './shared/config/db-connection.module';
 import { ConfigModule } from '@nestjs/config';
-import { AuthModule } from './auth/auth.module';
-import { HubsModule } from './hubs/hubs.module';
-import { AccDocsUploadModule } from './acc-docs-upload/acc-docs-upload.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { HubsModule } from './modules/hubs/hubs.module';
+import { AccDocsUploadModule } from './modules/acc-docs-upload/acc-docs-upload.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
@@ -12,9 +13,10 @@ import { AccDocsUploadModule } from './acc-docs-upload/acc-docs-upload.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRoot(typeOrmConfig),
+    DbConnectionModule,
     AuthModule,
     HubsModule,
+    UserModule,
     AccDocsUploadModule,
   ],
 })

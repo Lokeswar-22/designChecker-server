@@ -17,22 +17,22 @@ export class AuthController {
         const user = await this.authService.handleAuthCallback(code);
         res.json({
             message: 'Authentication successful',
-            apsUserId: user.apsUserId,
+            accUserId: user.accUserId,
         });
     }
 
-    @Get('token/:apsUserId')
-    async getToken(@Param('apsUserId') apsUserId: string) {
-        const user = await this.authService.refreshUserTokens(apsUserId);
+    @Get('token/:accUserId')
+    async getToken(@Param('accUserId') accUserId: string) {
+        const user = await this.authService.refreshUserTokens(accUserId);
         return {
             access_token: user.accessToken,
             expires_at: user.expiresAt,
         };
     }
 
-    @Get('profile/:apsUserId')
-    async getProfile(@Param('apsUserId') apsUserId: string) {
-        const user = await this.authService.refreshUserTokens(apsUserId);
+    @Get('profile/:accUserId')
+    async getProfile(@Param('accUserId') accUserId: string) {
+        const user = await this.authService.refreshUserTokens(accUserId);
         const profile = await this.authService.getUserProfile(user.accessToken);
         return { profile };
     }

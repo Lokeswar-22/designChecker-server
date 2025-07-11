@@ -2,16 +2,16 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthenticationClient, ResponseType } from '@aps_sdk/authentication';
-import { apsConfig } from '../config/aps.config';
-import { User } from '../users/user.entity';
+import { apsConfig } from '../../shared/config/aps.config';
+import { ACCUser } from '../../shared/entities/acc-user.entity';
 
 @Injectable()
 export class AuthService {
     private authenticationClient = new AuthenticationClient();
 
     constructor(
-        @InjectRepository(User)
-        private readonly userRepository: Repository<User>,
+        @InjectRepository(ACCUser)
+        private readonly accUserRepository: Repository<ACCUser>,
     ) {}
 
     getAuthorizationUrl(): string {
@@ -23,7 +23,7 @@ export class AuthService {
         );
     }
 
-    async handleAuthCallback(code: string): Promise<User> {
+    async handleAuthCallback(code: string): Promise<ACCUser> {
         const internalCredentials = await this.authenticationClient.getThreeLeggedToken(
             apsConfig.APS_CLIENT_ID,
             code,
@@ -39,30 +39,31 @@ export class AuthService {
 
         // Fetch user profile to get a unique identifier
         const profile = await this.getUserProfile(internalCredentials.access_token);
-        const apsUserId = profile.userId; // adjust key based on actual APS profile response
+        const accUserId = profile.userId; // adjust key based on actual APS profile response
 
-        let user = await this.userRepository.findOne({ where: { apsUserId } });
+        let user = await this.accUserRepository.findOne({ where: { accUserId } });
+        const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
 
         if (!user) {
-            user = this.userRepository.create({
-                apsUserId,
+            user = this.accUserRepository.create({
+                accUserId,
                 accessToken: internalCredentials.access_token,
                 refreshToken: publicCredentials.refresh_token,
-                expiresAt: new Date(Date.now() + internalCredentials.expires_in * 1000),
+                expiresAt: new Date(expirationTimestamp),
             });
         } else {
             user.accessToken = internalCredentials.access_token;
             user.refreshToken = publicCredentials.refresh_token;
-            user.expiresAt = new Date(Date.now() + internalCredentials.expires_in * 1000);
+            user.expiresAt = new Date(expirationTimestamp);
         }
 
-        await this.userRepository.save(user);
+        await this.accUserRepository.save(user);
 
         return user;
     }
 
-    async refreshUserTokens(apsUserId: string): Promise<User> {
-        const user = await this.userRepository.findOne({ where: { apsUserId } });
+    async refreshUserTokens(accUserId: string): Promise<ACCUser> {
+        const user = await this.accUserRepository.findOne({ where: { accUserId } });
         if (!user) {
             throw new NotFoundException('User not found');
         }
@@ -80,11 +81,13 @@ export class AuthService {
                 { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
             );
 
+            const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
+
             user.accessToken = internalCredentials.access_token;
             user.refreshToken = publicCredentials.refresh_token;
-            user.expiresAt = new Date(Date.now() + internalCredentials.expires_in * 1000);
+            user.expiresAt = new Date(expirationTimestamp);
 
-            await this.userRepository.save(user);
+            await this.accUserRepository.save(user);
         }
 
         return user;
