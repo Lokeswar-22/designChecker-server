@@ -8,34 +8,24 @@ export class HubsController {
   constructor(private readonly hubsService: HubsService) {}
 
   @Get()
-  async getHubs(@Query('apsUserId') apsUserId: string) {
-    return this.hubsService.getHubs(apsUserId);
+  async getHubs(@Query('accUserId') accUserId: string) {
+    return this.hubsService.getHubs(accUserId);
   }
 
   @Get(':hubId/projects')
   async getProjects(
     @Param('hubId') hubId: string,
-    @Query('apsUserId') apsUserId: string,
+    @Query('accUserId') accUserId: string,
   ) {
-    return this.hubsService.getProjects(hubId, apsUserId);
+    return this.hubsService.getProjects(hubId, accUserId);
   }
 
-  @Get(':hubId/projects/:projectId/contents')
-  async getProjectContents(
+  @Get(':hubId/projects/:projectId/element-groups')
+  async getElementGroups(
     @Param('hubId') hubId: string,
     @Param('projectId') projectId: string,
-    @Query('folderId') folderId: string,
-    @Query('apsUserId') apsUserId: string,
+    @Query('accUserId') accUserId: string,
   ) {
-    return this.hubsService.getProjectContents(hubId, projectId, folderId, apsUserId);
-  }
-
-  @Get('projects/:projectId/items/:itemId/versions')
-  async getItemVersions(
-    @Param('projectId') projectId: string,
-    @Param('itemId') itemId: string,
-    @Query('apsUserId') apsUserId: string,
-  ) {
-    return this.hubsService.getItemVersions(projectId, itemId, apsUserId);
+    return this.hubsService.getElementGroups(projectId, accUserId);
   }
 }

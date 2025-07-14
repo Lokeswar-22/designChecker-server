@@ -19,14 +19,14 @@ export class ACCAuthController {
         const user = await this.accAuthService.handleAuthCallback(code);
         if(user){
             const response = {
-                message: 'Authentication successful',
+                message: 'Successfully logged in, redirecting to home page ...',
                 accUserId: user.accUserId,
             };
-            
+
             console.log("Response object:", response);
             // Store in proper cache
             this.accAuthService.setAuthCache(user.accUserId, response);
-            
+
             res.json(response);
         }
     }

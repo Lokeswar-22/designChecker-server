@@ -8,9 +8,13 @@ import { JWTService } from 'src/shared/services/jwt.service';
 import { UserService } from '../user/user.service';
 import { User } from 'src/shared/entities/user.entity';
 import { RequestService } from 'src/shared/services/request.service';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ACCUser, User])],
+  imports: [
+    TypeOrmModule.forFeature([ACCUser, User]),
+    HttpModule
+  ],
   controllers: [HubsController],
   providers: [HubsService, ACCAuthService, JWTService, UserService, RequestService],
 })

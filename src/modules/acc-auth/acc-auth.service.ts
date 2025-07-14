@@ -157,11 +157,16 @@ export class ACCAuthService {
 
             const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
 
-            user.accessToken = internalCredentials.access_token;
-            user.refreshToken = publicCredentials.refresh_token;
-            user.expiresAt = new Date(expirationTimestamp);
+            // user.accessToken = internalCredentials.access_token;
+            // user.refreshToken = publicCredentials.refresh_token;
+            // user.expiresAt = new Date(expirationTimestamp);
 
-            await this.accUserRepository.save(user);
+            await this.accUserRepository.update(user.id, {
+                accessToken: internalCredentials.access_token,
+                refreshToken: publicCredentials.refresh_token,
+                expiresAt: new Date(expirationTimestamp),
+                modifiedAt: new Date(),
+            });
         }
 
         return user;
