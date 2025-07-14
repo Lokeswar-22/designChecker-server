@@ -18,7 +18,7 @@ export class ACCAuthController {
     async callback(@Query('code') code: string, @Res() res: Response) {
         const user = await this.accAuthService.handleAuthCallback(code);
         res.json({
-            message: 'Authentication successful',
+            message: 'Successfully logged in, redirecting to home page ...',
             accUserId: user.accUserId,
         });
     }
