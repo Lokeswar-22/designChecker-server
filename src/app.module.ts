@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HubsModule } from './modules/hubs/hubs.module';
 import { AccDocsUploadModule } from './modules/acc-docs-upload/acc-docs-upload.module';
 import { UserModule } from './modules/user/user.module';
+import { DocumentModule } from './modules/document/document.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UserModule } from './modules/user/user.module';
     HubsModule,
     UserModule,
     AccDocsUploadModule,
+    DocumentModule,
   ],
 })
 export class AppModule {}

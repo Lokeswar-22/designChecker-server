@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ACCUser } from '../entities/acc-user.entity';
 import { User } from '../entities/user.entity';
+import { Document } from '../entities/document.entity';
 import * as config from 'dotenv';
 
 config.config();
@@ -9,6 +10,7 @@ config.config();
 const entities = [
   User,
   ACCUser,
+  Document
 ]
 @Module({
   imports: [
