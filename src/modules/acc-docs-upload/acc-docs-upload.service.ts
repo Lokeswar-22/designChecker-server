@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-import { AuthService } from '../auth/auth.service';
+import { DocumentService } from '../document/document.service';
+import { CreateDocumentDto } from '../document/dto/create-document.dto';
 import { UnauthorizedException } from '@nestjs/common';
+import { ACCAuthService } from '../acc-auth/acc-auth.service';
 
 @Injectable()
 export class AccDocsUploadService {
@@ -11,7 +13,10 @@ export class AccDocsUploadService {
   private readonly DATA_BASE = `${this.APS_BASE}/data/v1/projects`;
   private readonly OSS_BASE = `${this.APS_BASE}/oss/v2/buckets`;
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly accAuthService: ACCAuthService,
+    private readonly documentService: DocumentService,
+  ) {}
 
   async createStorageObject(
     projectId: string,
@@ -19,7 +24,7 @@ export class AccDocsUploadService {
     filename: string,
     apsUserId: string,
   ): Promise<{ bucketKey: string; objectKey: string; objectId: string }> {
-    const user = await this.authService.refreshUserTokens(apsUserId);
+    const user = await this.accAuthService.refreshUserTokens(apsUserId);
     if (!user || !user.accessToken) {
       throw new UnauthorizedException('Login required');
     }
@@ -56,7 +61,7 @@ export class AccDocsUploadService {
     objectKey: string,
     apsUserId: string,
   ): Promise<{ uploadKey: string; urls: string[] }> {
-    const user = await this.authService.refreshUserTokens(apsUserId);
+    const user = await this.accAuthService.refreshUserTokens(apsUserId);
     if (!user || !user.accessToken) {
       throw new UnauthorizedException('Login required');
     }
@@ -92,7 +97,7 @@ export class AccDocsUploadService {
     uploadKey: string,
     apsUserId: string,
   ) {
-    const user = await this.authService.refreshUserTokens(apsUserId);
+    const user = await this.accAuthService.refreshUserTokens(apsUserId);
     if (!user || !user.accessToken) {
       throw new UnauthorizedException('Login required');
     }
@@ -110,4 +115,34 @@ export class AccDocsUploadService {
 
     return data;
   }
+
+  async createDocumentRecord(
+    file: any,
+    projectId: string,
+    hubId: string,
+    folderId: string,
+  ): Promise<number> {
+    const createDocumentDto: CreateDocumentDto = {
+      name: file.originalname,
+      extension: file.originalname.split('.').pop() || '',
+      size: file.size,
+      mimetype: file.mimetype,
+      hubId,
+      projectId,
+      folderIds: [folderId],
+      inAccDocs: false, // Will be updated to true after successful upload
+    };
+
+    const document = await this.documentService.create(createDocumentDto);
+    this.logger.log(`Document record created with ID: ${document.id}`);
+    return document.id;
+  }
+
+  async updateDocumentAsAccDoc(documentId: number, storageUrn: string): Promise<void> {
+    await this.documentService.update(documentId, {
+      storageUrn,
+      inAccDocs: true,
+    });
+    this.logger.log(`Document ${documentId} updated as ACC document with storage URN: ${storageUrn}`);
+  }
 }

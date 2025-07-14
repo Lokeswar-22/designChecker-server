@@ -50,6 +50,9 @@ export class User extends TypeOrmBaseEntity {
   @Column({ type: 'bit', nullable: true, default: false })
   isAccSynced: boolean;
 
+  @Column({ nullable: true })
+  accUserId: number;
+
   @OneToOne(() => ACCUser, (accUser: ACCUser) => accUser.user, { nullable: true })
   @JoinColumn({ name: 'accUserId' })
   accUser: ACCUser;

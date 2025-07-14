@@ -3,12 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ACCUser } from '../entities/acc-user.entity';
 import { User } from '../entities/user.entity';
 import * as config from 'dotenv';
+import { Document } from '../entities/document.entity';
 
 config.config();
 
 const entities = [
   User,
   ACCUser,
+  Document,
 ]
 @Module({
   imports: [

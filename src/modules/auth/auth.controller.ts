@@ -1,39 +1,75 @@
-import { Controller, Get, Query, Res, Param, NotFoundException } from '@nestjs/common';
-import { Response } from 'express';
-import { AuthService } from './auth.service';
+import {
+    Body,
+    Controller,
+    Headers,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseFilters
+  } from '@nestjs/common';
+  import { Response } from 'express';
+  import { LoginDto } from './dto/login.dto';
+  import { RegisterDto } from './dto/register.dto';
+  import { AuthService } from './auth.service';
+  import { constructResponse } from 'src/shared/utils/helpers';
 
-@Controller('api/auth')
-export class AuthController {
-    constructor(private readonly authService: AuthService) {}
+  @Controller('auth')
+  export class AuthController {
+    constructor(private readonly authService: AuthService) { }
 
-    @Get('login')
-    login(@Res() res: Response) {
-        const url = this.authService.getAuthorizationUrl();
-        res.redirect(url);
+    @Post('register')
+    register(
+      @Body() registerDto: RegisterDto,
+      @Res({ passthrough: true }) response: Response,
+    ) {
+      return this.authService.register(registerDto).then((result: any) => {
+        if (result.hash) return constructResponse(true, result, 200);
+        return constructResponse(true, result, 200);
+      });
     }
 
-    @Get('callback')
-    async callback(@Query('code') code: string, @Res() res: Response) {
-        const user = await this.authService.handleAuthCallback(code);
-        res.json({
-            message: 'Authentication successful',
-            accUserId: user.accUserId,
-        });
+    @Post('login')
+    login(
+      @Body() loginDto: LoginDto,
+      @Res({ passthrough: true }) response: Response,
+    ) {
+      return this.authService.login(loginDto).then((result) => {
+        return constructResponse(true, result, 200);
+      }).catch(err => (constructResponse(false, { message: err?.message }, 401)));
     }
 
-    @Get('token/:accUserId')
-    async getToken(@Param('accUserId') accUserId: string) {
-        const user = await this.authService.refreshUserTokens(accUserId);
-        return {
-            access_token: user.accessToken,
-            expires_at: user.expiresAt,
-        };
-    }
+    // @Post('password/forget')
+    // forgetPassword(
+    //   @Body() forgetPasswordDto: ForgetPasswordDto,
+    //   @Res({ passthrough: true }) response: Response,
+    // ) {
+    //   return this.authService.forgotPassword(forgetPasswordDto).then((result) => {
+    //     return constructResponse(true, result, 201);
+    //   });
+    // }
 
-    @Get('profile/:accUserId')
-    async getProfile(@Param('accUserId') accUserId: string) {
-        const user = await this.authService.refreshUserTokens(accUserId);
-        const profile = await this.authService.getUserProfile(user.accessToken);
-        return { profile };
-    }
-}
+    // @Post('password/reset')
+    // resetPassword(
+    //   @Body() resetPasswordDto: ResetPasswordDto,
+    //   @Res({ passthrough: true }) response: Response,
+    // ) {
+    //   return this.authService.resetPassword(resetPasswordDto).then((result) => {
+    //     return constructResponse(true, result, 200);
+    //   });
+    // }
+
+    // @Post('refresh-token')
+    // refreshToken(
+    //   @Headers('Authorization') refreshToken: string,
+    //   @Res({ passthrough: true }) response: Response,
+    // ) {
+    //   // refreshToken(@Body('refreshToken') refreshToken:string , @Res({passthrough: true}) response: Response) {
+    //   return this.authService.refreshToken(refreshToken).then((result) => {
+    //     return constructResponse(true, result, 200);
+    //   });
+    // }
+
+
+  }

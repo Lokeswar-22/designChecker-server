@@ -1,7 +1,9 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
 import { HubsService } from './hubs.service';
+import { AuthGuard } from 'src/shared/guards/auth.guard';
 
 @Controller('hubs')
+@UseGuards(AuthGuard)
 export class HubsController {
   constructor(private readonly hubsService: HubsService) {}
 
@@ -36,4 +38,4 @@ export class HubsController {
   ) {
     return this.hubsService.getItemVersions(projectId, itemId, apsUserId);
   }
-} 
+}

@@ -1,107 +1,112 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { User } from 'src/shared/entities/user.entity';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { UserService } from 'src/modules/user/user.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { RegisterResponseInterface } from 'src/shared/interfaces/auth/register-response.interface';
+import { JWTService } from 'src/shared/services/jwt.service';
+import { AccessTokenResponseInterface } from 'src/shared/interfaces/jwt/access-token-response.interface';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthenticationClient, ResponseType } from '@aps_sdk/authentication';
-import { apsConfig } from '../../shared/config/aps.config';
-import { ACCUser } from '../../shared/entities/acc-user.entity';
-
 @Injectable()
 export class AuthService {
-    private authenticationClient = new AuthenticationClient();
 
-    constructor(
-        @InjectRepository(ACCUser)
-        private readonly accUserRepository: Repository<ACCUser>,
-    ) {}
+  private readonly logger = new Logger(AuthService.name);
+  constructor(
+    private readonly jwtService: JWTService,
+    private readonly userService: UserService,
+    // private readonly genericCommonService: GenericCommonService,
 
-    getAuthorizationUrl(): string {
-        return this.authenticationClient.authorize(
-            apsConfig.APS_CLIENT_ID,
-            ResponseType.Code,
-            apsConfig.APS_CALLBACK_URL,
-            apsConfig.INTERNAL_TOKEN_SCOPES,
-        );
+  ) { }
+
+  async login(loginDto: LoginDto): Promise<AccessTokenResponseInterface> {
+    const { username, password }: LoginDto = loginDto;
+    try {
+      if (!username || !password) throw new BadRequestException('Username and password are required');
+      const user: User = await this.findUserForLogin(username, password);
+      return await this.sendTokenResponse(user, undefined);
+    } catch (error) {
+      console.log('Login error => ', error);
+      throw error;
     }
+  }
 
-    async handleAuthCallback(code: string): Promise<ACCUser> {
-        const internalCredentials = await this.authenticationClient.getThreeLeggedToken(
-            apsConfig.APS_CLIENT_ID,
-            code,
-            apsConfig.APS_CALLBACK_URL,
-            { clientSecret: apsConfig.APS_CLIENT_SECRET },
-        );
+  async findUserForLogin(username: string, password: string): Promise<User> {
 
-        const publicCredentials = await this.authenticationClient.refreshToken(
-            internalCredentials.refresh_token,
-            apsConfig.APS_CLIENT_ID,
-            { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
-        );
+    const user = await this.userService.findByEmail(username);
+    if (!user) throw new UnauthorizedException('Invalid username or password');
 
-        // Fetch user profile to get a unique identifier
-        const profile = await this.getUserProfile(internalCredentials.access_token);
-        const accUserId = profile.userId; // adjust key based on actual APS profile response
-
-        let user = await this.accUserRepository.findOne({ where: { accUserId } });
-        const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
-
-        if (!user) {
-            user = this.accUserRepository.create({
-                accUserId,
-                accessToken: internalCredentials.access_token,
-                refreshToken: publicCredentials.refresh_token,
-                expiresAt: new Date(expirationTimestamp),
-            });
-        } else {
-            user.accessToken = internalCredentials.access_token;
-            user.refreshToken = publicCredentials.refresh_token;
-            user.expiresAt = new Date(expirationTimestamp);
-        }
-
-        await this.accUserRepository.save(user);
-
-        return user;
+    const encryptedPassword = await this.userService.getUserPasswordByUserId(
+      user.userID, password
+    );
+    if (
+      user &&
+      (
+        await this.userService.passwordCheck(encryptedPassword, password)
+      )
+    ) {
+      return user;
     }
+    throw new BadRequestException('Invalid username or password');
+  }
 
-    async refreshUserTokens(accUserId: string): Promise<ACCUser> {
-        const user = await this.accUserRepository.findOne({ where: { accUserId } });
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<User | void | RegisterResponseInterface> {
+    const { email }: RegisterDto = registerDto;
 
-        if (user.expiresAt.getTime() < Date.now()) {
-            const internalCredentials = await this.authenticationClient.refreshToken(
-                user.refreshToken,
-                apsConfig.APS_CLIENT_ID,
-                { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.INTERNAL_TOKEN_SCOPES },
-            );
-
-            const publicCredentials = await this.authenticationClient.refreshToken(
-                internalCredentials.refresh_token,
-                apsConfig.APS_CLIENT_ID,
-                { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
-            );
-
-            const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
-
-            user.accessToken = internalCredentials.access_token;
-            user.refreshToken = publicCredentials.refresh_token;
-            user.expiresAt = new Date(expirationTimestamp);
-
-            await this.accUserRepository.save(user);
-        }
-
-        return user;
+    if (await this.userService.findByEmail(email))
+      throw new BadRequestException({
+        username:
+          'Email already exists',
+      });
+    try {
+      return this.userService.createUser(registerDto);
+    } catch (error) {
+      console.log('Register Error => ', error);
+      throw error;
     }
+  }
 
-    async getUserProfile(accessToken: string): Promise<any> {
-        // Replace this with actual APS API call to retrieve user profile
-        // Example using fetch:
-        const response = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!response.ok) {
-            throw new UnauthorizedException('Failed to fetch user profile');
-        }
-        return response.json();
-    }
+//   async refreshToken(token: string): Promise<any> {
+//     if (!token || !token.trim())
+//       // throw new BadRequestException(TEXT.VALIDATION_ERROR_MESSAGE.AUTH.REFRESH_TOKEN.REFRESH_TOKEN_NOT_PRESENT_IN_HEADER);
+//       console.log('token => ', token);
+
+//     try {
+//       const { userID, permissions, roles } =
+//         this.jwtService.verifyRefreshTokenAndGetPayload(token);
+//       console.log('Data => ', userID, permissions);
+//       const user: User = await this.userService.findActiveUserById(userID);
+//       if (!user)
+//         throw new BadRequestException(
+//           TEXT.VALIDATION_ERROR_MESSAGE.AUTH.REFRESH_TOKEN.INVALID_REFRESH_TOKEN,
+//         );
+
+//       token = token.split(' ')[1];
+//       return this.sendTokenResponse(user, token);
+//     } catch (error) {
+//       throw error instanceof HttpException
+//         ? error
+//         : new BadRequestException(error.message);
+//     }
+//   }
+
+  async sendTokenResponse(
+    user: User,
+    refreshToken?: string,
+  ): Promise<AccessTokenResponseInterface> {
+    return <AccessTokenResponseInterface>{
+      accessToken: this.jwtService.generateAccessToken(user),
+      refreshToken: refreshToken || (await this.jwtService.generateRefreshToken(user)),
+      user: await this.userService.userLoginObj(user),
+    };
+  }
+
 }
