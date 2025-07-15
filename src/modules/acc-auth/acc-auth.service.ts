@@ -84,23 +84,29 @@ export class ACCAuthService {
             { clientSecret: apsConfig.APS_CLIENT_SECRET },
         );
 
+        console.log("internalCredentials : ", internalCredentials);
+
         const publicCredentials = await this.authenticationClient.refreshToken(
             internalCredentials.refresh_token,
             apsConfig.APS_CLIENT_ID,
             { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
         );
 
-        const profile = await this.getUserProfile(internalCredentials.access_token);
-        const accUserId = profile.userId;
+        console.log("publicCredentials : ", publicCredentials);
 
-        let accUser = await this.accUserRepository.findOne({ where: { accUserId } });
+        const profile = await this.getUserProfile(internalCredentials.access_token);
+        console.log("profile : ", profile);
+
+        let accUser = await this.accUserRepository.findOne({ where: { accUserId: profile.userId } });
         const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
 
         if (!accUser) {
             accUser = this.accUserRepository.create({
-                accUserId,
+                accUserId: profile.userId,
                 accessToken: internalCredentials.access_token,
                 refreshToken: publicCredentials.refresh_token,
+                accUserName: profile.userName,
+                accEmail: profile.email,
                 expiresAt: new Date(expirationTimestamp),
                 createdAt: new Date(),
             });
