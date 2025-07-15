@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseGuards, Body } from '@nestjs/common';
 import { HubsService } from './hubs.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 
@@ -27,5 +27,16 @@ export class HubsController {
     @Query('accUserId') accUserId: string,
   ) {
     return this.hubsService.getElementGroups(projectId, accUserId);
+  }
+
+  @Get(':hubId/projects/:projectId/elements')
+  async getElementsFromCategory(
+    @Param('hubId') hubId: string,
+    @Param('projectId') projectId: string,
+    @Query('accUserId') accUserId: string,
+    @Body('elementGroupId') elementGroupId: string,
+    @Body('propertyFilter') propertyFilter: string,
+  ) {
+    return this.hubsService.getElementsFromCategory(projectId, elementGroupId, accUserId, propertyFilter);
   }
 }

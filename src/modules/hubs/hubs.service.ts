@@ -98,4 +98,37 @@ export class HubsService {
       }`;
     return this.queryGraphQL(q, { projectId }, accUserId);
   }
+
+  async getElementsFromCategory(projectId: string, elementGroupId: string, accUserId: string, propertyFilter?: string) {
+    const q = `
+      query ($elementGroupId: ID!, $filter: ElementFilterInput) {
+        elementsByElementGroup(
+          elementGroupId: $elementGroupId,
+          filter: $filter
+        ) {
+          pagination {
+            cursor
+          }
+          results {
+            id
+            name
+            properties {
+              results {
+                name
+                value
+                definition {
+                  units {
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`;
+
+    const variables: any = { elementGroupId };
+    if (propertyFilter) variables.filter = { query: propertyFilter };
+    return this.queryGraphQL(q, variables, accUserId);
+  }
 }
