@@ -65,9 +65,6 @@ query ($projectId:ID!) {
     results {
       id
       name
-      alternativeIdentifiers {
-        dataManagementAPIProjectId
-      }
     }
     pagination {
       cursor

@@ -89,7 +89,10 @@ export class HubsService {
     const q = `
       query ($projectId:ID!) {
         elementGroupsByProject(projectId:$projectId) {
-          results { id name alternativeIdentifiers { dataManagementAPIProjectId } }
+          results {
+            id
+            name
+          }
           pagination { cursor }
         }
       }`;
