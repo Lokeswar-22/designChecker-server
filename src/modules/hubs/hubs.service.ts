@@ -3,6 +3,7 @@ import { DataManagementClient } from '@aps_sdk/data-management';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { RequestService } from 'src/shared/services/request.service';
 
 @Injectable()
 export class HubsService {
@@ -11,7 +12,8 @@ export class HubsService {
 
   constructor(
     private readonly accAuthService: ACCAuthService,
-    private readonly http: HttpService
+    private readonly http: HttpService,
+    private readonly requestService: RequestService
   ) {}
 
   // async getHubs(apsUserId: string) {
@@ -69,6 +71,25 @@ export class HubsService {
     }
   }
 
+  async getAvailableCategories(accUserId: string) {
+    const q = `
+    query ($elementGroupId: ID!) {
+      distinctPropertyValuesInElementGroupByName(
+        elementGroupId: $elementGroupId
+        name: "Revit Category Type Id"
+      ) {
+        results {
+          values {
+            value
+            count
+          }
+        }
+      }
+    }`;
+    const { elementGroupId } = await this.requestService.getBody();
+    return this.queryGraphQL(q, { elementGroupId }, accUserId);
+  }
+
   async getHubs(accUserId: string) {
     const q = `query { hubs { results { id name } pagination { cursor } }} `;
     return this.queryGraphQL(q, {}, accUserId);
@@ -99,7 +120,7 @@ export class HubsService {
     return this.queryGraphQL(q, { projectId }, accUserId);
   }
 
-  async getElementsFromCategory(projectId: string, elementGroupId: string, accUserId: string, propertyFilter?: string) {
+  async getElementsFromCategory(elementGroupId: string, accUserId: string, propertyFilter?: string) {
     const q = `
       query ($elementGroupId: ID!, $filter: ElementFilterInput) {
         elementsByElementGroup(

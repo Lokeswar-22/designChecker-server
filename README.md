@@ -96,3 +96,273 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+# Design Checker Server
+
+This is a NestJS server application that provides APIs for design checking and AEC data model integration.
+
+## Features
+
+- Authentication and authorization
+- ACC (Autodesk Construction Cloud) integration
+- Hubs and projects management
+- Document upload and management
+- **AEC Data Model APIs** - Complete implementation of all tutorial APIs
+
+## AEC Data Model APIs
+
+The server now includes comprehensive AEC Data Model API integration based on the [AEC Data Model Tutorial](https://aps.autodesk.com/en/docs/aecdatamodel/v1/tutorials/tutorial02/). All APIs use GraphQL queries to interact with the Autodesk AEC Data Model service.
+
+### Base URL
+All AEC Data Model endpoints are prefixed with `/aecDataModel`
+
+### Authentication
+All endpoints require authentication via the `AuthGuard` and an `accUserId` query parameter.
+
+### Implemented APIs
+
+#### 1. Get ElementGroups Based on Metadata
+
+**Basic ElementGroups:**
+```
+GET /aecDataModel/projects/{projectId}/element-groups?accUserId={accUserId}
+```
+
+**ElementGroups with Metadata Filter:**
+```
+POST /aecDataModel/projects/{projectId}/element-groups/metadata?accUserId={accUserId}
+Body: {
+  "metadata": {
+    "name": "Category",
+    "value": "Doors"
+  }
+}
+```
+
+#### 2. Get Versions of an ElementGroup
+
+```
+GET /aecDataModel/element-groups/{elementGroupId}/versions?accUserId={accUserId}
+```
+
+#### 3. Get Element Instances of a Particular Type
+
+```
+GET /aecDataModel/element-groups/{elementGroupId}/elements/type/{elementType}?accUserId={accUserId}
+Body: {
+  "filter": {
+    "propertyFilter": "Area > 100"
+  }
+}
+```
+
+#### 4. Get Element Instances in a Category by Version
+
+```
+GET /aecDataModel/element-groups/{elementGroupId}/elements/category/{category}?accUserId={accUserId}&versionId={versionId}
+Body: {
+  "filter": {
+    "propertyFilter": "Material = 'Steel'"
+  }
+}
+```
+
+#### 5. Get Project Elements with Specific Properties
+
+```
+POST /aecDataModel/projects/{projectId}/elements/properties?accUserId={accUserId}
+Body: {
+  "propertyFilter": {
+    "name": "Area",
+    "value": "> 100",
+    "operator": "GREATER_THAN"
+  }
+}
+```
+
+#### 6. Get Elements by using Instances or Reference
+
+**By Instances:**
+```
+POST /aecDataModel/element-groups/{elementGroupId}/elements/instances?accUserId={accUserId}
+Body: {
+  "elementIds": ["element1", "element2", "element3"]
+}
+```
+
+**By References:**
+```
+POST /aecDataModel/element-groups/{elementGroupId}/elements/references?accUserId={accUserId}
+Body: {
+  "elementIds": ["element1", "element2", "element3"]
+}
+```
+
+#### 7. Get Distinct Values of Properties
+
+**By Property Definition ID:**
+```
+GET /aecDataModel/projects/{projectId}/properties/{propertyDefinitionId}/distinct-values?accUserId={accUserId}
+```
+
+**By Property Name:**
+```
+GET /aecDataModel/projects/{projectId}/properties/name/{propertyName}/distinct-values?accUserId={accUserId}
+```
+
+### Additional Helper Endpoints
+
+#### Get Property Definitions
+```
+GET /aecDataModel/projects/{projectId}/property-definitions?accUserId={accUserId}
+```
+
+#### Get Design Versions
+```
+GET /aecDataModel/projects/{projectId}/design-versions?accUserId={accUserId}
+```
+
+#### Generic Element Query
+```
+POST /aecDataModel/element-groups/{elementGroupId}/elements?accUserId={accUserId}
+Body: {
+  "filter": {
+    "category": "Doors",
+    "type": "Door",
+    "propertyFilter": "Width > 800"
+  }
+}
+```
+
+### Response Format
+
+All APIs return data in the following GraphQL-based format:
+
+```json
+{
+  "results": [
+    {
+      "id": "element-id",
+      "name": "Element Name",
+      "properties": {
+        "results": [
+          {
+            "name": "Property Name",
+            "value": "Property Value",
+            "definition": {
+              "name": "Definition Name",
+              "units": {
+                "name": "Unit Name"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "pagination": {
+    "cursor": "next-page-cursor"
+  }
+}
+```
+
+### Error Handling
+
+All endpoints include proper error handling:
+- **401 Unauthorized**: When authentication fails or token is invalid
+- **400 Bad Request**: When required parameters are missing
+- **500 Internal Server Error**: When GraphQL queries fail
+
+### Example Usage
+
+```javascript
+// Get element groups for a project
+const elementGroups = await fetch('/aecDataModel/projects/project123/element-groups?accUserId=user123');
+
+// Get elements by type with filter
+const elements = await fetch('/aecDataModel/element-groups/group123/elements/type/Door?accUserId=user123', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    filter: { propertyFilter: 'Width > 800' }
+  })
+});
+
+// Get distinct property values
+const distinctValues = await fetch('/aecDataModel/projects/project123/properties/name/Material/distinct-values?accUserId=user123');
+```
+
+## Installation
+
+```bash
+npm install
+```
+
+## Running the app
+
+```bash
+# development
+npm run start
+
+# watch mode
+npm run start:dev
+
+# production mode
+npm run start:prod
+```
+
+## Environment Variables
+
+Create a `.env` file with the following variables:
+
+```env
+# Database configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
+
+# APS (Autodesk Platform Services) configuration
+APS_CLIENT_ID=your_aps_client_id
+APS_CLIENT_SECRET=your_aps_client_secret
+APS_CALLBACK_URL=http://localhost:3000/api/auth/callback
+
+# JWT configuration
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=24h
+```
+
+## API Documentation
+
+The server provides comprehensive REST APIs for:
+
+- Authentication (`/auth`)
+- User management (`/user`)
+- ACC integration (`/acc-auth`)
+- Hubs and projects (`/hubs`)
+- Document management (`/document`)
+- **AEC Data Model (`/aecDataModel`)** - Complete tutorial implementation
+
+## Architecture
+
+The application follows NestJS best practices with:
+
+- **Modules**: Feature-based organization
+- **Controllers**: Handle HTTP requests
+- **Services**: Business logic implementation
+- **Guards**: Authentication and authorization
+- **Entities**: Database models
+- **DTOs**: Data transfer objects
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
