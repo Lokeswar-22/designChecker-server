@@ -10,6 +10,12 @@ export class ACCUser extends BaseEntity {
     @Column({ name: 'acc_user_id', unique: true })
     accUserId: string;
 
+    @Column({name: 'userName', nullable: true})
+    accUserName: string;
+
+    @Column({name: 'email', nullable: true})
+    accEmail: string;
+
     @Column({ type: 'text' })
     accessToken: string;
 
