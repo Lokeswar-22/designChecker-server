@@ -17,10 +17,18 @@ export class ACCAuthController {
     @Get('callback')
     async callback(@Query('code') code: string, @Res() res: Response) {
         const user = await this.accAuthService.handleAuthCallback(code);
-        res.json({
-            message: 'Authentication successful',
-            accUserId: user.accUserId,
-        });
+        if(user){
+            const response = {
+                message: 'Authentication successful',
+                accUserId: user.accUserId,
+            };
+            
+            console.log("Response object:", response);
+            // Store in proper cache
+            this.accAuthService.setAuthCache(user.accUserId, response);
+            
+            res.json(response);
+        }
     }
 
     @Post('sync')
@@ -44,5 +52,22 @@ export class ACCAuthController {
         const user = await this.accAuthService.refreshUserTokens(accUserId);
         const profile = await this.accAuthService.getUserProfile(user.accessToken);
         return { profile };
+    }
+
+    @Get('status')
+    async getAuthStatus() {
+        // If we have cached response from callback, return it
+        console.log("CALLED")
+        const cachedResponse = this.accAuthService.getLatestAuthCache();
+        if (cachedResponse) {
+            console.log("Returning cached response:", cachedResponse);
+            return cachedResponse;
+        }
+
+        // If no cached response, return not authenticated
+        return {
+            message: 'User not found or not authenticated',
+            accUserId: null,
+        };
     }
 }

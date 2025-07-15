@@ -10,6 +10,7 @@ import { RequestService } from 'src/shared/services/request.service';
 @Injectable()
 export class ACCAuthService {
     private authenticationClient = new AuthenticationClient();
+    private static authCache = new Map<string, { message: string; accUserId: string; timestamp: number }>();
 
     constructor(
         @InjectRepository(ACCUser)
@@ -18,6 +19,53 @@ export class ACCAuthService {
         private readonly userRepository: Repository<User>,
         private readonly requestService: RequestService,
     ) {}
+
+    // Cache methods
+    setAuthCache(accUserId: string, response: { message: string; accUserId: string }) {
+        ACCAuthService.authCache.set(accUserId, {
+            ...response,
+            timestamp: Date.now()
+        });
+        console.log("Cached auth response for:", accUserId, response);
+    }
+
+    getAuthCache(accUserId: string) {
+        const cached = ACCAuthService.authCache.get(accUserId);
+        if (cached) {
+            // Cache expires after 5 minutes
+            const isExpired = Date.now() - cached.timestamp > 5 * 60 * 1000;
+            if (!isExpired) {
+                console.log("Returning cached auth response for:", accUserId);
+                return { message: cached.message, accUserId: cached.accUserId };
+            } else {
+                ACCAuthService.authCache.delete(accUserId);
+            }
+        }
+        return null;
+    }
+
+    clearAuthCache(accUserId: string) {
+        ACCAuthService.authCache.delete(accUserId);
+    }
+
+    getLatestAuthCache() {
+        if (ACCAuthService.authCache.size === 0) {
+            return null;
+        }
+        
+        // Get the most recent cached entry
+        let latestEntry: { message: string; accUserId: string } | null = null;
+        let latestTimestamp = 0;
+        
+        for (const [accUserId, cached] of ACCAuthService.authCache.entries()) {
+            if (cached.timestamp > latestTimestamp) {
+                latestTimestamp = cached.timestamp;
+                latestEntry = { message: cached.message, accUserId: cached.accUserId };
+            }
+        }
+        
+        return latestEntry;
+    }
 
     getAuthorizationUrl(): string {
         return this.authenticationClient.authorize(
@@ -129,5 +177,18 @@ export class ACCAuthService {
             throw new UnauthorizedException('Failed to fetch user profile');
         }
         return response.json();
+    }
+
+    async checkAuthStatus(accUserId: string): Promise<{ message: string; accUserId: string }> {
+        const accUser = await this.accUserRepository.findOne({ where: { accUserId } });
+        
+        if (!accUser) {
+            throw new NotFoundException('User not found or not authenticated');
+        }
+
+        return {
+            message: 'Authentication successful',
+            accUserId: accUser.accUserId,
+        };
     }
 }
