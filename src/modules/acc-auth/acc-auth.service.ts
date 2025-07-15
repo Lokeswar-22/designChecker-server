@@ -52,18 +52,18 @@ export class ACCAuthService {
         if (ACCAuthService.authCache.size === 0) {
             return null;
         }
-        
+
         // Get the most recent cached entry
         let latestEntry: { message: string; accUserId: string } | null = null;
         let latestTimestamp = 0;
-        
+
         for (const [accUserId, cached] of ACCAuthService.authCache.entries()) {
             if (cached.timestamp > latestTimestamp) {
                 latestTimestamp = cached.timestamp;
                 latestEntry = { message: cached.message, accUserId: cached.accUserId };
             }
         }
-        
+
         return latestEntry;
     }
 
@@ -84,15 +84,11 @@ export class ACCAuthService {
             { clientSecret: apsConfig.APS_CLIENT_SECRET },
         );
 
-        console.log("internalCredentials : ", internalCredentials);
-
         const publicCredentials = await this.authenticationClient.refreshToken(
             internalCredentials.refresh_token,
             apsConfig.APS_CLIENT_ID,
             { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
         );
-
-        console.log("publicCredentials : ", publicCredentials);
 
         const profile = await this.getUserProfile(internalCredentials.access_token);
         console.log("profile : ", profile);
@@ -106,7 +102,7 @@ export class ACCAuthService {
                 accessToken: internalCredentials.access_token,
                 refreshToken: publicCredentials.refresh_token,
                 accUserName: profile.userName,
-                accEmail: profile.email,
+                accEmail: profile.emailId,
                 expiresAt: new Date(expirationTimestamp),
                 createdAt: new Date(),
             });
@@ -130,7 +126,7 @@ export class ACCAuthService {
 
         await this.userRepository.update(user.userID, {
             isAccSynced: true,
-            accUserId: accUser.id
+            accUserId: accUser.accUserId
         });
 
         const updatedUser = await this.userRepository.findOne({
@@ -192,7 +188,7 @@ export class ACCAuthService {
 
     async checkAuthStatus(accUserId: string): Promise<{ message: string; accUserId: string }> {
         const accUser = await this.accUserRepository.findOne({ where: { accUserId } });
-        
+
         if (!accUser) {
             throw new NotFoundException('User not found or not authenticated');
         }

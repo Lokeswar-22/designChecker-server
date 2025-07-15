@@ -51,10 +51,9 @@ export class User extends TypeOrmBaseEntity {
   isAccSynced: boolean;
 
   @Column({ nullable: true })
-  accUserId: number;
+  accUserId: string;
 
   @OneToOne(() => ACCUser, (accUser: ACCUser) => accUser.user, { nullable: true })
-  @JoinColumn({ name: 'accUserId' })
   accUser: ACCUser;
 
 }
