@@ -12,5 +12,6 @@ import { RequestService } from '../../shared/services/request.service';
     imports: [TypeOrmModule.forFeature([ACCUser, User])],
     controllers: [ACCAuthController],
     providers: [ACCAuthService, JWTService, UserService, RequestService],
+    exports: [ACCAuthService]
 })
 export class ACCAuthModule {}

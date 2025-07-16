@@ -1,79 +1,23 @@
-import {
-  Controller,
-  Post,
-  UploadedFile,
-  UseInterceptors,
-  Body
-} from '@nestjs/common';
+import { Controller, Post, UploadedFile, UseInterceptors, Body } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AccDocsUploadService } from './acc-docs-upload.service';
 
-@Controller('accdocs')
+@Controller('acc-docs-upload')
 export class AccDocsUploadController {
-
-  constructor(private readonly uploadService: AccDocsUploadService) {}
+  constructor(private readonly svc: AccDocsUploadService) {}
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadRevitFile(
-    @UploadedFile() file: any,
-    @Body()
-    body: {
-      projectId: string;
-      hubId: string;
-      folderId: string;
-      userId: string;
-    },
+  async upload(
+    @Body('accUserId') accUserId: string,
+    @Body('projectId') projectId: string,
+    @Body('hubId') hubId: string,
+    @Body('folderId') folderId: string,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    const { projectId, hubId, folderId, userId } = body;
-    const filename = file.originalname;
-
-
-    const documentId = await this.uploadService.createDocumentRecord(
-      file,
-      projectId,
-      hubId,
-      folderId,
-    );
-
-    try {
-      const storage = await this.uploadService.createStorageObject(
-        projectId,
-        folderId,
-        filename,
-        userId,
-      );
-
-      const signed = await this.uploadService.generateSignedUrls(
-        storage.bucketKey,
-        storage.objectKey,
-        userId,
-      );
-
-      await this.uploadService.uploadChunkToSignedUrl(signed.urls[0], file.buffer);
-
-      const result = await this.uploadService.completeUpload(
-        storage.bucketKey,
-        storage.objectKey,
-        signed.uploadKey,
-        userId,
-      );
-
-      await this.uploadService.updateDocumentAsAccDoc(documentId, storage.objectId);
-
-
-      return {
-        message: 'File uploaded successfully to Autodesk APS.',
-        documentId,
-        apsObjectId: result.objectId,
-        apsObjectKey: result.objectKey,
-        apsLocation: result.location,
-        apsBucketKey: result.bucketKey,
-        fileSize: result.size,
-        contentType: result.contentType,
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
+    await this.svc.prepareUpload(accUserId, projectId, hubId, folderId, file);
+    const complete = await this.svc.uploadChunks(accUserId, file);
+    const result = await this.svc.finalize(accUserId, projectId, folderId);
+    return { complete, result };
+  }
 }

@@ -9,6 +9,8 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DocumentModule } from './modules/document/document.module';
 import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.module';
+import { RuleEngineModule } from './modules/rule-engine/rule-engine.module';
+import { RuleCheckModule } from './modules/rule-check/rule-check.module';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.modu
       isGlobal: true,
       envFilePath: '.env',
     }),
+    
     DbConnectionModule,
     AuthModule,
     ACCAuthModule,
@@ -24,6 +27,8 @@ import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.modu
     AccDocsUploadModule,
     DocumentModule,
     AecDataModelModule,
+    RuleEngineModule,
+    RuleCheckModule,
   ],
 })
 export class AppModule {}

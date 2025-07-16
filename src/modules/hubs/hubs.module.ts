@@ -9,6 +9,8 @@ import { UserService } from '../user/user.service';
 import { User } from 'src/shared/entities/user.entity';
 import { RequestService } from 'src/shared/services/request.service';
 import { HttpModule } from '@nestjs/axios';
+import { DataManagementClient } from '@aps_sdk/data-management';
+import { RuleCheckModule } from '../rule-check/rule-check.module';
 
 @Module({
   imports: [
@@ -16,6 +18,14 @@ import { HttpModule } from '@nestjs/axios';
     HttpModule
   ],
   controllers: [HubsController],
-  providers: [HubsService, ACCAuthService, JWTService, UserService, RequestService],
+  providers: [
+    HubsService, 
+    ACCAuthService, 
+    JWTService, 
+    UserService, 
+    RequestService,
+    DataManagementClient,
+  ],
+  exports: [HubsService],
 })
 export class HubsModule {}

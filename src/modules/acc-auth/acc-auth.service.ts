@@ -9,6 +9,7 @@ import { RequestService } from 'src/shared/services/request.service';
 
 @Injectable()
 export class ACCAuthService {
+    private refreshPromises = new Map<string, Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }>>();
     private authenticationClient = new AuthenticationClient();
     private static authCache = new Map<string, { message: string; accUserId: string; timestamp: number }>();
 
@@ -20,7 +21,6 @@ export class ACCAuthService {
         private readonly requestService: RequestService,
     ) {}
 
-    // Cache methods
     setAuthCache(accUserId: string, response: { message: string; accUserId: string }) {
         ACCAuthService.authCache.set(accUserId, {
             ...response,
@@ -32,7 +32,6 @@ export class ACCAuthService {
     getAuthCache(accUserId: string) {
         const cached = ACCAuthService.authCache.get(accUserId);
         if (cached) {
-            // Cache expires after 5 minutes
             const isExpired = Date.now() - cached.timestamp > 5 * 60 * 1000;
             if (!isExpired) {
                 console.log("Returning cached auth response for:", accUserId);
@@ -53,7 +52,6 @@ export class ACCAuthService {
             return null;
         }
 
-        // Get the most recent cached entry
         let latestEntry: { message: string; accUserId: string } | null = null;
         let latestTimestamp = 0;
 
@@ -140,43 +138,32 @@ export class ACCAuthService {
         };
     }
 
-    async refreshUserTokens(accUserId: string): Promise<ACCUser> {
+    async getCurrentUserWithValidToken(accUserId: string): Promise<ACCUser> {
+        const tokenData = await this.refreshUserTokens(accUserId);
         const user = await this.accUserRepository.findOne({ where: { accUserId } });
-        if (!user) throw new NotFoundException('User not found');
-
-        if (user.expiresAt.getTime() < Date.now()) {
-            const internalCredentials = await this.authenticationClient.refreshToken(
-                user.refreshToken,
-                apsConfig.APS_CLIENT_ID,
-                { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.INTERNAL_TOKEN_SCOPES },
-            );
-
-            const publicCredentials = await this.authenticationClient.refreshToken(
-                internalCredentials.refresh_token,
-                apsConfig.APS_CLIENT_ID,
-                { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
-            );
-
-            const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
-
-            // user.accessToken = internalCredentials.access_token;
-            // user.refreshToken = publicCredentials.refresh_token;
-            // user.expiresAt = new Date(expirationTimestamp);
-
-            await this.accUserRepository.update(user.id, {
-                accessToken: internalCredentials.access_token,
-                refreshToken: publicCredentials.refresh_token,
-                expiresAt: new Date(expirationTimestamp),
-                modifiedAt: new Date(),
-            });
+        
+        if (!user) {
+            throw new NotFoundException('ACC User not found');
         }
 
+        user.accessToken = tokenData.accessToken;
+        user.expiresAt = tokenData.expiresAt;
+        
         return user;
     }
 
+    async isTokenValid(accUserId: string): Promise<boolean> {
+        const user = await this.accUserRepository.findOne({ where: { accUserId } });
+        
+        if (!user) {
+            return false;
+        }
+
+        const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
+        return user.expiresAt.getTime() > fiveMinutesFromNow;
+    }
+
     async getUserProfile(accessToken: string): Promise<any> {
-        // Replace this with actual APS API call to retrieve user profile
-        // Example using fetch:
         const response = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` },
         });
@@ -198,4 +185,53 @@ export class ACCAuthService {
             accUserId: accUser.accUserId,
         };
     }
+    async refreshUserTokens(accUserId: string): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }> {
+        const user = await this.accUserRepository.findOne({ where: { accUserId } });
+        if (!user) throw new NotFoundException('ACC User not found');
+    
+        const now = Date.now();
+        if (user.expiresAt.getTime() > now + 5 * 60 * 1000) {
+          return { accessToken: user.accessToken, refreshToken: user.refreshToken, expiresAt: user.expiresAt };
+        }
+
+        if (this.refreshPromises.has(accUserId)) {
+            return await this.refreshPromises.get(accUserId) as { accessToken: string; refreshToken: string; expiresAt: Date };
+        }
+
+        const promise = this._doRefresh(user);
+        this.refreshPromises.set(accUserId, promise);
+        try {
+          const result = await promise;
+          return result;
+        } finally {
+          this.refreshPromises.delete(accUserId);
+        }
+      }
+    
+      private async _doRefresh(user: ACCUser) {
+        try {
+          const internal = await this.authenticationClient.refreshToken(
+            user.refreshToken, apsConfig.APS_CLIENT_ID,
+            { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.INTERNAL_TOKEN_SCOPES },
+          );
+    
+          const pub = await this.authenticationClient.refreshToken(
+            internal.refresh_token, apsConfig.APS_CLIENT_ID,
+            { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
+          );
+    
+          const expiresAt = new Date(Date.now() + internal.expires_in * 1000);
+    
+          user.accessToken = internal.access_token;
+          user.refreshToken = pub.refresh_token;
+          user.expiresAt = expiresAt;
+          await this.accUserRepository.save(user);
+    
+          return { accessToken: internal.access_token, refreshToken: pub.refresh_token, expiresAt };
+        } catch (err) {
+          console.error('Token refresh failed', err);
+          throw new UnauthorizedException('Refresh token invalid or expired – re-auth required.');
+        }
+      }
+    
 }

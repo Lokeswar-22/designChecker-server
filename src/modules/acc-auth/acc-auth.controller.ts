@@ -40,18 +40,27 @@ export class ACCAuthController {
 
     @Get('token/:accUserId')
     async getToken(@Param('accUserId') accUserId: string) {
-        const user = await this.accAuthService.refreshUserTokens(accUserId);
+        const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
         return {
-            access_token: user.accessToken,
-            expires_at: user.expiresAt,
+            access_token: tokenData.accessToken,
+            expires_at: tokenData.expiresAt,
         };
     }
 
     @Get('profile/:accUserId')
     async getProfile(@Param('accUserId') accUserId: string) {
-        const user = await this.accAuthService.refreshUserTokens(accUserId);
-        const profile = await this.accAuthService.getUserProfile(user.accessToken);
+        const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
+        const profile = await this.accAuthService.getUserProfile(tokenData.accessToken);
         return { profile };
+    }
+
+    @Get('validate/:accUserId')
+    async validateToken(@Param('accUserId') accUserId: string) {
+        const isValid = await this.accAuthService.isTokenValid(accUserId);
+        return {
+            isValid,
+            accUserId,
+        };
     }
 
     @Get('status')

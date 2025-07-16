@@ -3,7 +3,7 @@ import { HubsService } from './hubs.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 
 @Controller('hubs')
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard)
 export class HubsController {
   constructor(private readonly hubsService: HubsService) {}
 
@@ -36,12 +36,34 @@ export class HubsController {
     return this.hubsService.getElementGroups(projectId, accUserId);
   }
 
-  @Get('elementsCategory')
+  @Post('elementsCategory')
   async getElementsFromCategory(
     @Query('accUserId') accUserId: string,
     @Body('elementGroupId') elementGroupId: string,
     @Body('propertyFilter') propertyFilter: string,
   ) {
     return this.hubsService.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
+  }
+
+  @Get(':hubId/projects/:projectId/top-folders')
+  async getTopFolders(
+    @Param('hubId') hubId: string,
+    @Param('projectId') projectId: string,
+    @Query('accUserId') accUserId: string,
+  ) {
+    return this.hubsService.getTopFolders(hubId, projectId, accUserId);
+  }
+
+  @Get('upload')
+  async getHubsUpload(@Query('accUserId') accUserId: string) {
+    return this.hubsService.getHubsUpload(accUserId);
+  }
+
+  @Get(':hubId/projects/upload')
+  async getProjectsUpload(
+    @Param('hubId') hubId: string,
+    @Query('accUserId') accUserId: string,
+  ) {
+    return this.hubsService.getProjectsUpload(hubId, accUserId);
   }
 }

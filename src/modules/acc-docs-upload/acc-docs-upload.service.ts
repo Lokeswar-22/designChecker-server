@@ -1,148 +1,145 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
 import axios from 'axios';
-import { DocumentService } from '../document/document.service';
-import { CreateDocumentDto } from '../document/dto/create-document.dto';
-import { UnauthorizedException } from '@nestjs/common';
+import * as rax from 'retry-axios';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
+
+interface CacheEntry {
+  name: string;
+  size: number;
+  uploadKey?: string;
+  urls?: string[];
+  objectId?: string;
+  bucketKey?: string;
+  objectKey?: string;
+}
+
 
 @Injectable()
 export class AccDocsUploadService {
-  private readonly logger = new Logger(AccDocsUploadService.name);
-
-  private readonly APS_BASE = 'https://developer.api.autodesk.com';
-  private readonly DATA_BASE = `${this.APS_BASE}/data/v1/projects`;
-  private readonly OSS_BASE = `${this.APS_BASE}/oss/v2/buckets`;
+  private cache = new Map<string, CacheEntry>(); // per-upload cache
 
   constructor(
-    private readonly accAuthService: ACCAuthService,
-    private readonly documentService: DocumentService,
+    private readonly accAuth: ACCAuthService
   ) {}
 
-  async createStorageObject(
-    projectId: string,
-    folderId: string,
-    filename: string,
-    apsUserId: string,
-  ): Promise<{ bucketKey: string; objectKey: string; objectId: string }> {
-    const user = await this.accAuthService.refreshUserTokens(apsUserId);
-    if (!user || !user.accessToken) {
-      throw new UnauthorizedException('Login required');
-    }
+  async prepareUpload(accUserId: string, projectId: string, hubId: string, folderId: string, file: Express.Multer.File) {
+    const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
+    // const token = user.accessToken;
+    const token = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw';
+    const { originalname: name, size } = file;
 
-    const url = `${this.DATA_BASE}/${projectId}/storage`;
-    const payload = {
-      jsonapi: { version: '1.0' },
-      data: {
-        type: 'objects',
-        attributes: { name: filename },
-        relationships: {
-          target: { data: { type: 'folders', id: folderId } },
+    console.log(`File: ${name}, Size: ${size}, Mime: ${file.mimetype}`);
+
+    this.cache.set(accUserId, { name, size });
+
+    // Create storage object
+    const resp = await axios.post(
+      `https://developer.api.autodesk.com/data/v1/projects/${projectId}/storage`,
+      {
+        jsonapi: { version: '1.0' },
+        data: {
+          type: 'objects',
+          attributes: { name },
+          relationships: { target: { data: { type: 'folders', id: folderId } } },
         },
       },
-    };
-
-    const { data } = await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${user.accessToken}`,
-        'Content-Type': 'application/vnd.api+json',
-        Accept: 'application/vnd.api+json',
-      },
-    });
-
-    const urn = data.data.id;
-    const [, , bucketKey, objectKey] = urn.split(':').pop().split('/');
-
-    this.logger.log(`Storage created: bucketKey=${bucketKey}, objectKey=${objectKey}`);
-    return { bucketKey, objectKey, objectId: urn };
-  }
-
-  async generateSignedUrls(
-    bucketKey: string,
-    objectKey: string,
-    apsUserId: string,
-  ): Promise<{ uploadKey: string; urls: string[] }> {
-    const user = await this.accAuthService.refreshUserTokens(apsUserId);
-    if (!user || !user.accessToken) {
-      throw new UnauthorizedException('Login required');
-    }
-
-    const url = `${this.OSS_BASE}/${bucketKey}/objects/${objectKey}/signeds3upload`;
-
-    const { data } = await axios.get(url, {
-      headers: { Authorization: `Bearer ${user.accessToken}` },
-    });
-
-    this.logger.log(`Signed URLs generated for objectKey=${objectKey}`);
-    return { uploadKey: data.uploadKey, urls: data.urls };
-  }
-
-  async uploadChunkToSignedUrl(
-    signedUrl: string,
-    fileBuffer: Buffer,
-  ): Promise<void> {
-    const { status } = await axios.put(signedUrl, fileBuffer, {
-      headers: { 'Content-Type': 'application/octet-stream' },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
-
-    if (status !== 200) {
-      throw new Error(`Failed to upload chunk. Status: ${status}`);
-    }
-  }
-
-  async completeUpload(
-    bucketKey: string,
-    objectKey: string,
-    uploadKey: string,
-    apsUserId: string,
-  ) {
-    const user = await this.accAuthService.refreshUserTokens(apsUserId);
-    if (!user || !user.accessToken) {
-      throw new UnauthorizedException('Login required');
-    }
-
-    const url = `${this.OSS_BASE}/${bucketKey}/objects/${objectKey}/signeds3upload`;
-
-    const { data } = await axios.post(
-      url,
-      { uploadKey },
-      { headers: { Authorization: `Bearer ${user.accessToken}` } },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
+    const objectId: string = resp.data.data.id;
+    // const bucketKey = objectId.split('/:')[1].split('/')[0];
+    // const objectKey = objectId.split('/').pop();
+    if (!objectId) {
+      console.error('Failed storage create, response:', resp.data);
+      throw new Error('Storage creation failed');
+    }
+    
+    // Safely parse URN
+    const urnPattern = /^urn:adsk\.objects:os\.object:([^\/]+)\/(.+)$/;
+    const match = objectId.match(urnPattern);
+    if (!match) {
+      console.error('Invalid URN', objectId);
+      throw new Error('Invalid object urn format');
+    }
+    const [, bucketKey, objectKey] = match;
+    
 
-    this.logger.log(`Upload completed for objectKey=${objectKey}`);
-    this.logger.debug(`Final Object Info: ${JSON.stringify(data, null, 2)}`);
+    const entry = this.cache.get(accUserId)!;
+    Object.assign(entry, { objectId, bucketKey, objectKey });
 
-    return data;
+    // Get signed S3 URLs (single or chunked)
+    if (!bucketKey || !objectKey) {
+      throw new Error('bucketKey or objectKey is undefined');
+    }
+    const bt = new BinaryTransferClient(token);
+    const parts = Math.ceil(size / (5 * 1024 * 1024));
+    const { uploadKey, urls } = await bt._getUploadUrls(bucketKey, objectKey, parts, 1);
+
+    Object.assign(entry, { uploadKey, urls });
+
+    return { uploadKey, urls };
   }
 
-  async createDocumentRecord(
-    file: any,
-    projectId: string,
-    hubId: string,
-    folderId: string,
-  ): Promise<number> {
-    const createDocumentDto: CreateDocumentDto = {
-      name: file.originalname,
-      extension: file.originalname.split('.').pop() || '',
-      size: file.size,
-      mimetype: file.mimetype,
-      hubId,
-      projectId,
-      folderIds: [folderId],
-      inAccDocs: false, // Will be updated to true after successful upload
-    };
+  async uploadChunks(accUserId: string, file: Express.Multer.File) {
+    const entry = this.cache.get(accUserId);
+    if (!entry?.urls) throw new Error('Upload not initialized');
 
-    const document = await this.documentService.create(createDocumentDto);
-    this.logger.log(`Document record created with ID: ${document.id}`);
-    return document.id;
+    // const bt = new BinaryTransferClient((await this.accAuth.getCurrentUserWithValidToken(accUserId)).accessToken);
+    const bt = new BinaryTransferClient('eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw');
+    // upload each chunk/url pair
+    await Promise.all(entry.urls.map((url, idx) => axios.put(url, file.buffer.slice(idx * 5e6, (idx + 1) * 5e6), { headers: { 'Content-Type': 'application/octet-stream' }, raxConfig: { instance: axios } })));
+
+    const complete = await bt._completeUpload(entry.bucketKey!, entry.objectKey!, entry.uploadKey!);
+
+    Object.assign(entry, complete);
+    return complete;
   }
 
-  async updateDocumentAsAccDoc(documentId: number, storageUrn: string): Promise<void> {
-    await this.documentService.update(documentId, {
-      storageUrn,
-      inAccDocs: true,
-    });
-    this.logger.log(`Document ${documentId} updated as ACC document with storage URN: ${storageUrn}`);
-  }
+  async finalize(accUserId: string, projectId: string, folderId: string) {
+    const entry = this.cache.get(accUserId);
+    if (!entry?.objectId) throw new Error('Upload not finalized');
+
+    // const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
+    const user = { accessToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw' };
+    await axios.post(
+      `https://developer.api.autodesk.com/data/v1/projects/${projectId}/items`,
+      {
+        jsonapi: { version: '1.0' },
+        data: {
+          type: 'items',
+          attributes: { displayName: entry.name, extension: { type: 'items:autodesk.bim360:File', version: '1.0' } },
+          relationships: {
+            tip: { data: { type: 'versions', id: '1' } },
+            parent: { data: { type: 'folders', id: folderId } },
+          },
+        },
+        included: [
+          {
+            type: 'versions',
+            id: '1',
+            attributes: { name: entry.name, extension: { type: 'versions:autodesk.bim360:File', version: '1.0' } },
+            relationships: { storage: { data: { type: 'objects', id: entry.objectId } } },
+          },
+        ],
+      },
+      { headers: { Authorization: `Bearer ${user.accessToken}`, 'Content-Type': 'application/vnd.api+json' } }
+    );
+    return { item: true };
+  }
+}
+
+// Helper for S3 transfer
+class BinaryTransferClient {
+  private axios;
+  constructor(token: string) {
+    this.axios = axios.create({ baseURL: 'https://developer.api.autodesk.com/oss/v2/', headers: { Authorization: `Bearer ${token}` } });
+    rax.attach(this.axios);
+  }
+
+  _getUploadUrls(bucketKey: string, objectKey: string, parts: number, firstPart: number) {
+    return this.axios.get(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload?parts=${parts}&firstPart=${firstPart}`).then(r => r.data);
+  }
+
+  _completeUpload(bucketKey: string, objectKey: string, uploadKey: string) {
+    return this.axios.post(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`, { uploadKey }).then(r => r.data);
+  }
 }
