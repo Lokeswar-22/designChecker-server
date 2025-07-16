@@ -8,6 +8,7 @@ import { AccDocsUploadModule } from './modules/acc-docs-upload/acc-docs-upload.m
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DocumentModule } from './modules/document/document.module';
+import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DocumentModule } from './modules/document/document.module';
     UserModule,
     AccDocsUploadModule,
     DocumentModule,
+    AecDataModelModule,
   ],
 })
 export class AppModule {}
