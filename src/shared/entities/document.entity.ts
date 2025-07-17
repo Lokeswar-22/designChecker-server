@@ -12,13 +12,10 @@ export class Document {
   extension: string;
 
   @Column({ type: 'bigint' })
-  size: number; // in bytes
+  size: number;
 
   @Column({ type: 'nvarchar', length: 255, nullable: true })
   mimetype: string;
-
-  @Column({ type: 'nvarchar', length: 255, nullable: true })
-  storageUrn: string; // if you store APS storage URN
 
   @Column({ type: 'nvarchar', length: 255 })
   hubId: string;
@@ -26,18 +23,9 @@ export class Document {
   @Column({ type: 'nvarchar', length: 255 })
   projectId: string;
 
-  @Column({ type: 'nvarchar', length: 'max', transformer: {
-    to: (value: string[]) => JSON.stringify(value),
-    from: (value: string) => JSON.parse(value || '[]')
-  }})
-  folderIds: string[];
-
-  @Column({ type: 'bit', default: false })
-  inAccDocs: boolean;
+  @Column({ type: 'nvarchar', length: 255 })
+  folderId: string;
 
   @CreateDateColumn({ type: 'datetime2' })
   createdAt: Date;
-
-  @UpdateDateColumn({ type: 'datetime2' })
-  updatedAt: Date;
 }

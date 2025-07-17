@@ -32,7 +32,6 @@ export class AuthService {
       const user: User = await this.findUserForLogin(username, password);
       return await this.sendTokenResponse(user, undefined);
     } catch (error) {
-      console.log('Login error => ', error);
       throw error;
     }
   }
@@ -69,7 +68,6 @@ export class AuthService {
     try {
       return this.userService.createUser(registerDto);
     } catch (error) {
-      console.log('Register Error => ', error);
       throw error;
     }
   }

@@ -32,7 +32,6 @@ export class AecDataModelService {
                 })
             );
 
-            console.log('res : ', response.data);
             return response.data;
         } catch (error) {
             console.error('GraphQL Error:', error.response?.data || error.message);

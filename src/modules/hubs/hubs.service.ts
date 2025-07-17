@@ -177,7 +177,6 @@ export class HubsService {
 
     const graphqlResponse = await this.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
     if (!graphqlResponse?.elementsByElementGroup?.results) {
-      console.log('No results found in GraphQL response');
       return [];
     }
 
@@ -192,8 +191,6 @@ export class HubsService {
       };
     });
 
-    console.log('Mapped results:', JSON.stringify(mappedResults, null, 2));
-    console.log('=== End fetchPropertiesForRules Debug ===');
     return mappedResults;
   }
 

@@ -23,8 +23,6 @@ export class ACCAuthController {
                 accUserId: user.accUserId,
             };
 
-            console.log("Response object:", response);
-            // Store in proper cache
             this.accAuthService.setAuthCache(user.accUserId, response);
 
             res.json(response);
@@ -65,15 +63,10 @@ export class ACCAuthController {
 
     @Get('status')
     async getAuthStatus() {
-        // If we have cached response from callback, return it
-        console.log("CALLED")
         const cachedResponse = this.accAuthService.getLatestAuthCache();
         if (cachedResponse) {
-            console.log("Returning cached response:", cachedResponse);
             return cachedResponse;
         }
-
-        // If no cached response, return not authenticated
         return {
             message: 'User not found or not authenticated',
             accUserId: null,

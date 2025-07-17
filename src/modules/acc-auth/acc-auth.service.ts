@@ -28,7 +28,6 @@ export class ACCAuthService {
             ...response,
             timestamp: Date.now()
         });
-        console.log("Cached auth response for:", accUserId, response);
     }
 
     getAuthCache(accUserId: string) {
@@ -36,7 +35,6 @@ export class ACCAuthService {
         if (cached) {
             const isExpired = Date.now() - cached.timestamp > 5 * 60 * 1000;
             if (!isExpired) {
-                console.log("Returning cached auth response for:", accUserId);
                 return { message: cached.message, accUserId: cached.accUserId };
             } else {
                 ACCAuthService.authCache.delete(accUserId);
@@ -91,7 +89,6 @@ export class ACCAuthService {
         );
 
         const profile = await this.getUserProfile(internalCredentials.access_token);
-        console.log("profile : ", profile);
 
         let accUser = await this.accUserRepository.findOne({ where: { accUserId: profile.userId } });
         const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
