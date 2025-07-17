@@ -5,7 +5,7 @@ export class APSToken {
     @PrimaryGeneratedColumn()
     apsTokenID: number;
 
-    @Column({ type: 'text', nullable: true })
+    @Column({ type: 'nvarchar', length: 'max', nullable: true })
     accUserId: string;
 
     @Column({ type: 'text', nullable: false })

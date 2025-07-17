@@ -10,7 +10,6 @@ import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Injectable()
 export class ACCAuthService {
-    private refreshPromises = new Map<string, Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }>>();
     private authenticationClient = new AuthenticationClient();
     private static authCache = new Map<string, { message: string; accUserId: string; timestamp: number }>();
 
@@ -152,31 +151,6 @@ export class ACCAuthService {
         };
     }
 
-    async getCurrentUserWithValidToken(accUserId: string): Promise<ACCUser> {
-        const tokenData = await this.refreshUserTokens(accUserId);
-        const user = await this.accUserRepository.findOne({ where: { accUserId } });
-
-        if (!user) {
-            throw new NotFoundException('ACC User not found');
-        }
-
-        user.accessToken = tokenData.accessToken;
-        user.expiresAt = tokenData.expiresAt;
-
-        return user;
-    }
-
-    async isTokenValid(accUserId: string): Promise<boolean> {
-        const user = await this.accUserRepository.findOne({ where: { accUserId } });
-
-        if (!user) {
-            return false;
-        }
-
-        const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
-        return user.expiresAt.getTime() > fiveMinutesFromNow;
-    }
-
     async getUserProfile(accessToken: string): Promise<any> {
         const response = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -200,52 +174,76 @@ export class ACCAuthService {
         };
     }
     async refreshUserTokens(accUserId: string): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }> {
-        const user = await this.accUserRepository.findOne({ where: { accUserId } });
-        if (!user) throw new NotFoundException('ACC User not found');
+        const apsToken = await this.apsTokenRepository.findOne({ where: { accUserId }, order: { createdAt: 'DESC' } });
+        if (!apsToken) throw new NotFoundException('APS Token not found for this ACC user');
 
         const now = Date.now();
-        if (user.expiresAt.getTime() > now + 5 * 60 * 1000) {
-          return { accessToken: user.accessToken, refreshToken: user.refreshToken, expiresAt: user.expiresAt };
+        const tokenExpiryTime = apsToken.expiresAt.getTime();
+
+        if (tokenExpiryTime > now + 5 * 60 * 1000) {
+            return {
+                accessToken: apsToken.accessToken,
+                refreshToken: apsToken.refreshToken,
+                expiresAt: apsToken.expiresAt
+            };
         }
 
-        if (this.refreshPromises.has(accUserId)) {
-            return await this.refreshPromises.get(accUserId) as { accessToken: string; refreshToken: string; expiresAt: Date };
-        }
-
-        const promise = this._doRefresh(user);
-        this.refreshPromises.set(accUserId, promise);
         try {
-          const result = await promise;
-          return result;
-        } finally {
-          this.refreshPromises.delete(accUserId);
-        }
-      }
+            const newCredentials = await this.authenticationClient.refreshToken(
+                apsToken.refreshToken,
+                apsConfig.APS_CLIENT_ID,
+                {
+                    clientSecret: apsConfig.APS_CLIENT_SECRET,
+                    scopes: apsConfig.INTERNAL_TOKEN_SCOPES
+                }
+            );
 
-      private async _doRefresh(user: ACCUser) {
+            const expirationTimestamp = Date.now() + (newCredentials.expires_in * 1000);
+            const newExpiresAt = new Date(expirationTimestamp);
+
+            await this.apsTokenRepository.update(
+                { apsTokenID: apsToken.apsTokenID },
+                {
+                    accessToken: newCredentials.access_token,
+                    refreshToken: newCredentials.refresh_token || apsToken.refreshToken,
+                    expiresAt: newExpiresAt
+                }
+            );
+
+            return {
+                accessToken: newCredentials.access_token,
+                refreshToken: newCredentials.refresh_token || apsToken.refreshToken,
+                expiresAt: newExpiresAt
+            };
+        } catch (error) {
+            console.error('Failed to refresh token for accUserId:', accUserId, error);
+            throw new UnauthorizedException('Failed to refresh access token. User needs to re-authenticate.');
+        }
+    }
+
+    async getValidAccessToken(accUserId: string): Promise<string> {
         try {
-          const internal = await this.authenticationClient.refreshToken(
-            user.refreshToken, apsConfig.APS_CLIENT_ID,
-            { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.INTERNAL_TOKEN_SCOPES },
-          );
-
-          const pub = await this.authenticationClient.refreshToken(
-            internal.refresh_token, apsConfig.APS_CLIENT_ID,
-            { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
-          );
-
-          const expiresAt = new Date(Date.now() + internal.expires_in * 1000);
-
-          user.accessToken = internal.access_token;
-          user.refreshToken = pub.refresh_token;
-          user.expiresAt = expiresAt;
-          await this.accUserRepository.save(user);
-
-          return { accessToken: internal.access_token, refreshToken: pub.refresh_token, expiresAt };
-        } catch (err) {
-          console.error('Token refresh failed', err);
-          throw new UnauthorizedException('Refresh token invalid or expired – re-auth required.');
+            const tokenData = await this.refreshUserTokens(accUserId);
+            return tokenData.accessToken;
+        } catch (error) {
+            console.error('Error getting valid access token for accUserId:', accUserId, error);
+            throw error;
         }
-      }
+    }
 
+    // async isTokenValid(accUserId: string): Promise<boolean> {
+    //     try {
+    //         const apsToken = await this.apsTokenRepository.findOne({ where: { accUserId } });
+    //         if (!apsToken) return false;
+
+    //         const now = Date.now();
+    //         const tokenExpiryTime = apsToken.expiresAt.getTime();
+
+    //         // Token is valid if it expires in more than 5 minutes
+    //         return tokenExpiryTime > now + 5 * 60 * 1000;
+    //     } catch (error) {
+    //         console.error('Error checking token validity for accUserId:', accUserId, error);
+    //         return false;
+    //     }
+    // }
 }

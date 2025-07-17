@@ -17,8 +17,8 @@ export class AecDataModelService {
 
     private async queryGraphQL(query: string, variables: any = {}, accUserId: string) {
         try {
-            const user = await this.accAuthService.refreshUserTokens(accUserId);
-            if (!user || !user.accessToken) throw new UnauthorizedException('Login required');
+            const accessToken = await this.accAuthService.getValidAccessToken(accUserId);
+            if (!accessToken) throw new UnauthorizedException('Login required');
 
             const response = await firstValueFrom(
                 this.http.post(this.endpoint, {
@@ -26,7 +26,7 @@ export class AecDataModelService {
                     variables
                 }, {
                     headers: {
-                        'Authorization': `Bearer ${user.accessToken}`,
+                        'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
                     }
                 })

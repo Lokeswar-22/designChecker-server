@@ -24,9 +24,8 @@ export class AccDocsUploadService {
   ) {}
 
   async prepareUpload(accUserId: string, projectId: string, hubId: string, folderId: string, file: Express.Multer.File) {
-    const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
-    // const token = user.accessToken;
-    const token = 'TOKEN';
+    const accessToken = await this.accAuth.getValidAccessToken(accUserId);
+    const token = accessToken;
     const { originalname: name, size } = file;
 
     console.log(`File: ${name}, Size: ${size}, Mime: ${file.mimetype}`);
@@ -53,7 +52,7 @@ export class AccDocsUploadService {
       console.error('Failed storage create, response:', resp.data);
       throw new Error('Storage creation failed');
     }
-    
+
     // Safely parse URN
     const urnPattern = /^urn:adsk\.objects:os\.object:([^\/]+)\/(.+)$/;
     const match = objectId.match(urnPattern);
@@ -62,7 +61,7 @@ export class AccDocsUploadService {
       throw new Error('Invalid object urn format');
     }
     const [, bucketKey, objectKey] = match;
-    
+
 
     const entry = this.cache.get(accUserId)!;
     Object.assign(entry, { objectId, bucketKey, objectKey });
@@ -80,9 +79,9 @@ export class AccDocsUploadService {
     console.log('File size:', size);
     console.log('Chunk size:', CHUNK_SIZE);
     console.log('Calculated parts:', parts);
-    
+
     const { uploadKey, urls } = await bt._getUploadUrls(bucketKey, objectKey, parts, 1);
-    
+
     console.log('Upload key:', uploadKey);
     console.log('Number of URLs:', urls?.length);
     console.log('URLs:', urls);
@@ -102,9 +101,9 @@ export class AccDocsUploadService {
     console.log('File buffer length:', file.buffer.length);
     console.log('Number of URLs:', entry.urls.length);
 
-    // const bt = new BinaryTransferClient((await this.accAuth.getCurrentUserWithValidToken(accUserId)).accessToken);
-    const bt = new BinaryTransferClient('TOKEN');
-    
+    const accessToken = await this.accAuth.getValidAccessToken(accUserId);
+    const bt = new BinaryTransferClient(accessToken);
+
     // upload each chunk/url pair
     try {
       const uploadPromises = entry.urls.map(async (url, idx) => {
@@ -112,23 +111,23 @@ export class AccDocsUploadService {
         const start = idx * chunkSize;
         const end = Math.min((idx + 1) * chunkSize, file.buffer.length);
         const chunk = file.buffer.slice(start, end);
-        
+
         console.log(`Chunk ${idx + 1}:`);
         console.log(`  URL: ${url}`);
         console.log(`  Start: ${start}, End: ${end}, Size: ${chunk.length}`);
         console.log(`  Content-Type: application/octet-stream`);
-        
+
         // Validate chunk size for S3 multipart upload
         if (entry.urls && idx < entry.urls.length - 1 && chunk.length < 5 * 1024 * 1024) {
           console.warn(`Warning: Chunk ${idx + 1} size (${chunk.length}) is below S3 minimum (${5 * 1024 * 1024})`);
         }
-        
-        const response = await axios.put(url, chunk, { 
-          headers: { 'Content-Type': 'application/octet-stream' }, 
+
+        const response = await axios.put(url, chunk, {
+          headers: { 'Content-Type': 'application/octet-stream' },
           raxConfig: { instance: axios },
           timeout: 30000 // 30 second timeout
         });
-        
+
         console.log(`  Chunk ${idx + 1} uploaded successfully:`, response.status);
         return response;
       });
@@ -161,8 +160,7 @@ export class AccDocsUploadService {
     const entry = this.cache.get(accUserId);
     if (!entry?.objectId) throw new Error('Upload not finalized');
 
-    // const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
-    const user = { accessToken: 'TOKEN' };
+    const accessToken = await this.accAuth.getValidAccessToken(accUserId);
     await axios.post(
       `https://developer.api.autodesk.com/data/v1/projects/${projectId}/items`,
       {
@@ -184,7 +182,7 @@ export class AccDocsUploadService {
           },
         ],
       },
-      { headers: { Authorization: `Bearer ${user.accessToken}`, 'Content-Type': 'application/vnd.api+json' } }
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/vnd.api+json' } }
     );
     return { item: true };
   }
@@ -203,7 +201,7 @@ class BinaryTransferClient {
     console.log('Requesting URLs for:', { bucketKey, objectKey, parts, firstPart });
     const url = `buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload?parts=${parts}&firstPart=${firstPart}`;
     console.log('Request URL:', url);
-    
+
     return this.axios.get(url)
       .then(r => {
         console.log('Upload URLs response:', JSON.stringify(r.data, null, 2));
@@ -218,7 +216,7 @@ class BinaryTransferClient {
   _completeUpload(bucketKey: string, objectKey: string, uploadKey: string) {
     console.log('=== COMPLETE UPLOAD DEBUG ===');
     console.log('Completing upload for:', { bucketKey, objectKey, uploadKey });
-    
+
     return this.axios.post(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`, { uploadKey })
       .then(r => {
         console.log('Complete upload response:', JSON.stringify(r.data, null, 2));

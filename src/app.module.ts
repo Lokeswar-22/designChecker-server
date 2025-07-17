@@ -7,7 +7,6 @@ import { HubsModule } from './modules/hubs/hubs.module';
 import { AccDocsUploadModule } from './modules/acc-docs-upload/acc-docs-upload.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { DocumentModule } from './modules/document/document.module';
 import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.module';
 import { RuleEngineModule } from './modules/rule-engine/rule-engine.module';
 import { RuleCheckModule } from './modules/rule-check/rule-check.module';
@@ -18,14 +17,13 @@ import { RuleCheckModule } from './modules/rule-check/rule-check.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    
+
     DbConnectionModule,
     AuthModule,
     ACCAuthModule,
     HubsModule,
     UserModule,
     AccDocsUploadModule,
-    DocumentModule,
     AecDataModelModule,
     RuleEngineModule,
     RuleCheckModule,
