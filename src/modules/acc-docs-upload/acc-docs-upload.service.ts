@@ -11,6 +11,7 @@ interface CacheEntry {
   objectId?: string;
   bucketKey?: string;
   objectKey?: string;
+  chunkSize?: number;
 }
 
 
@@ -25,7 +26,7 @@ export class AccDocsUploadService {
   async prepareUpload(accUserId: string, projectId: string, hubId: string, folderId: string, file: Express.Multer.File) {
     const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
     // const token = user.accessToken;
-    const token = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw';
+    const token = 'TOKEN';
     const { originalname: name, size } = file;
 
     console.log(`File: ${name}, Size: ${size}, Mime: ${file.mimetype}`);
@@ -71,10 +72,22 @@ export class AccDocsUploadService {
       throw new Error('bucketKey or objectKey is undefined');
     }
     const bt = new BinaryTransferClient(token);
-    const parts = Math.ceil(size / (5 * 1024 * 1024));
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB in bytes (5,242,880 bytes)
+    const parts = Math.ceil(size / CHUNK_SIZE);
+    console.log('=== PREPARE UPLOAD DEBUG ===');
+    console.log('Bucket key:', bucketKey);
+    console.log('Object key:', objectKey);
+    console.log('File size:', size);
+    console.log('Chunk size:', CHUNK_SIZE);
+    console.log('Calculated parts:', parts);
+    
     const { uploadKey, urls } = await bt._getUploadUrls(bucketKey, objectKey, parts, 1);
+    
+    console.log('Upload key:', uploadKey);
+    console.log('Number of URLs:', urls?.length);
+    console.log('URLs:', urls);
 
-    Object.assign(entry, { uploadKey, urls });
+    Object.assign(entry, { uploadKey, urls, chunkSize: CHUNK_SIZE });
 
     return { uploadKey, urls };
   }
@@ -83,10 +96,60 @@ export class AccDocsUploadService {
     const entry = this.cache.get(accUserId);
     if (!entry?.urls) throw new Error('Upload not initialized');
 
+    console.log('=== UPLOAD CHUNKS DEBUG ===');
+    console.log('Entry:', JSON.stringify(entry, null, 2));
+    console.log('File size:', file.size);
+    console.log('File buffer length:', file.buffer.length);
+    console.log('Number of URLs:', entry.urls.length);
+
     // const bt = new BinaryTransferClient((await this.accAuth.getCurrentUserWithValidToken(accUserId)).accessToken);
-    const bt = new BinaryTransferClient('eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw');
+    const bt = new BinaryTransferClient('TOKEN');
+    
     // upload each chunk/url pair
-    await Promise.all(entry.urls.map((url, idx) => axios.put(url, file.buffer.slice(idx * 5e6, (idx + 1) * 5e6), { headers: { 'Content-Type': 'application/octet-stream' }, raxConfig: { instance: axios } })));
+    try {
+      const uploadPromises = entry.urls.map(async (url, idx) => {
+        const chunkSize = entry.chunkSize || 5 * 1024 * 1024; // Default to 5MB if not set
+        const start = idx * chunkSize;
+        const end = Math.min((idx + 1) * chunkSize, file.buffer.length);
+        const chunk = file.buffer.slice(start, end);
+        
+        console.log(`Chunk ${idx + 1}:`);
+        console.log(`  URL: ${url}`);
+        console.log(`  Start: ${start}, End: ${end}, Size: ${chunk.length}`);
+        console.log(`  Content-Type: application/octet-stream`);
+        
+        // Validate chunk size for S3 multipart upload
+        if (entry.urls && idx < entry.urls.length - 1 && chunk.length < 5 * 1024 * 1024) {
+          console.warn(`Warning: Chunk ${idx + 1} size (${chunk.length}) is below S3 minimum (${5 * 1024 * 1024})`);
+        }
+        
+        const response = await axios.put(url, chunk, { 
+          headers: { 'Content-Type': 'application/octet-stream' }, 
+          raxConfig: { instance: axios },
+          timeout: 30000 // 30 second timeout
+        });
+        
+        console.log(`  Chunk ${idx + 1} uploaded successfully:`, response.status);
+        return response;
+      });
+
+      await Promise.all(uploadPromises);
+      console.log('All chunks uploaded successfully');
+    } catch (error) {
+      console.error('=== UPLOAD ERROR DETAILS ===');
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error status:', error.response?.status);
+      console.error('Error status text:', error.response?.statusText);
+      console.error('Error data:', error.response?.data);
+      console.error('Error headers:', error.response?.headers);
+      console.error('Request URL:', error.config?.url);
+      console.error('Request method:', error.config?.method);
+      console.error('Request headers:', error.config?.headers);
+      console.error('Request data length:', error.config?.data?.length);
+      throw error;
+    }
 
     const complete = await bt._completeUpload(entry.bucketKey!, entry.objectKey!, entry.uploadKey!);
 
@@ -99,7 +162,7 @@ export class AccDocsUploadService {
     if (!entry?.objectId) throw new Error('Upload not finalized');
 
     // const user = await this.accAuth.getCurrentUserWithValidToken(accUserId);
-    const user = { accessToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IlZiakZvUzhQU3lYODQyMV95dndvRUdRdFJEa19SUzI1NiIsInBpLmF0bSI6ImFzc2MifQ.eyJzY29wZSI6WyJkYXRhOnJlYWQiLCJkYXRhOndyaXRlIiwiZGF0YTpjcmVhdGUiLCJkYXRhOnNlYXJjaCIsImJ1Y2tldDpjcmVhdGUiLCJidWNrZXQ6cmVhZCIsImJ1Y2tldDp1cGRhdGUiLCJidWNrZXQ6ZGVsZXRlIiwidmlld2FibGVzOnJlYWQiXSwiY2xpZW50X2lkIjoidFRYODBHQjhiSVRjZkFuNkdNTUpWaDVMcmxHSFdBV2NZdHhIZ1lTOXROOHFybXd3IiwiaXNzIjoiaHR0cHM6Ly9kZXZlbG9wZXIuYXBpLmF1dG9kZXNrLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXV0b2Rlc2suY29tIiwianRpIjoicmdUcHF5elp3bndXZ2puVUFxanhmMnJUVFI4QmRYa0RNM1dYZjZUSnpzZ3B1TnNiVlpPZGZjS2kwRWtDVktpOSIsImV4cCI6MTc1MjY2NDk2MCwidXNlcmlkIjoiNE4zSlFBRVRQNDNTQUw2VSJ9.PdjinK5Br7pDL4K67fVtwVI7n7x_xhUJ5dr60e24104Alo6Z6KdG2GEZSChCyFvII0X3kQvkJFT1ZJxQ10knz1om3eZTRKLJf6g2jT2DywoQEm5GqHBmgQgHuzvipPdjM-lEdlkiwRTUnr8ywu3dFF3WFmACKC0MjuToec_6am4UQQTz3dOZtqZcdfowZto4AzNDE3YA0kCaIXJrv7sAbKZgKtlZvzKg-_If_0DPOTg4g1PkcFrzbjBdeF1wVDwhGP9vQ6GqrGFPQFtpZMLIJEjvb7EaWs6omKuwjA2PunNKSZTTOesHw3hDQfbRU8rAzwq-uir3e4eaU7QBbrT0Hw' };
+    const user = { accessToken: 'TOKEN' };
     await axios.post(
       `https://developer.api.autodesk.com/data/v1/projects/${projectId}/items`,
       {
@@ -136,10 +199,34 @@ class BinaryTransferClient {
   }
 
   _getUploadUrls(bucketKey: string, objectKey: string, parts: number, firstPart: number) {
-    return this.axios.get(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload?parts=${parts}&firstPart=${firstPart}`).then(r => r.data);
+    console.log('=== GET UPLOAD URLS DEBUG ===');
+    console.log('Requesting URLs for:', { bucketKey, objectKey, parts, firstPart });
+    const url = `buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload?parts=${parts}&firstPart=${firstPart}`;
+    console.log('Request URL:', url);
+    
+    return this.axios.get(url)
+      .then(r => {
+        console.log('Upload URLs response:', JSON.stringify(r.data, null, 2));
+        return r.data;
+      })
+      .catch(error => {
+        console.error('Error getting upload URLs:', error.response?.data || error.message);
+        throw error;
+      });
   }
 
   _completeUpload(bucketKey: string, objectKey: string, uploadKey: string) {
-    return this.axios.post(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`, { uploadKey }).then(r => r.data);
+    console.log('=== COMPLETE UPLOAD DEBUG ===');
+    console.log('Completing upload for:', { bucketKey, objectKey, uploadKey });
+    
+    return this.axios.post(`buckets/${bucketKey}/objects/${encodeURIComponent(objectKey)}/signeds3upload`, { uploadKey })
+      .then(r => {
+        console.log('Complete upload response:', JSON.stringify(r.data, null, 2));
+        return r.data;
+      })
+      .catch(error => {
+        console.error('Error completing upload:', error.response?.data || error.message);
+        throw error;
+      });
   }
 }

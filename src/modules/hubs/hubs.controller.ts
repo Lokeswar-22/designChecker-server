@@ -59,6 +59,15 @@ export class HubsController {
     return this.hubsService.getHubsUpload(accUserId);
   }
 
+  @Get('projects/:projectId/folders/:folderId/contents')
+  async getFolderContents(
+    @Param('projectId') projectId: string,
+    @Param('folderId') folderId: string,
+    @Query('accUserId') accUserId: string,
+  ) {
+    return this.hubsService.getFolderContents(projectId, folderId, accUserId);
+  }
+
   @Get(':hubId/projects/upload')
   async getProjectsUpload(
     @Param('hubId') hubId: string,

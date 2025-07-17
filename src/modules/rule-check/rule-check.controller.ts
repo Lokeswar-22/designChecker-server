@@ -13,7 +13,7 @@ export class RuleCheckController {
   @Post('rule1')
   async checkDoorClearOpening(@Body() checkRuleDto: CheckRuleDto) {
     const doors = await this.aecData.fetchPropertiesForRules(
-      checkRuleDto.projectId,
+      checkRuleDto.elementGroupId,
       checkRuleDto.accUserId,
       checkRuleDto.category
     );

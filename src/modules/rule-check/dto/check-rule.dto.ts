@@ -3,7 +3,7 @@ import { IsString, IsNotEmpty } from 'class-validator';
 export class CheckRuleDto {
   @IsString()
   @IsNotEmpty()
-  projectId: string;
+  elementGroupId: string;
 
   @IsString()
   @IsNotEmpty()

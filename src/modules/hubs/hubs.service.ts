@@ -57,6 +57,13 @@ export class HubsService {
     }
   }
 
+  async getFolderContents(projectId: string, folderId: string, accUserId: string) {
+    const user = await this.accAuthService.getCurrentUserWithValidToken(accUserId);
+    if (!user || !user.accessToken) throw new UnauthorizedException('Login required');
+    const resp = await this.dataManagementClient.getFolderContents(projectId, folderId, { accessToken: user.accessToken });
+    return resp.data;
+  }
+
   private async queryGraphQL(query: string, variables: any = {}, accUserId: string) {
     try {
       console.log('=== GraphQL Query Debug ===');
