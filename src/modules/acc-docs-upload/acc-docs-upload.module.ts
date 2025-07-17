@@ -13,11 +13,12 @@ import { ACCAuthController } from '../acc-auth/acc-auth.controller';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { HttpModule } from '@nestjs/axios';
 import { CacheModule } from '@nestjs/cache-manager';
+import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User]), 
-    MulterModule.register({ limits: { fileSize: 500 * 1024 * 1024 } }), 
+    TypeOrmModule.forFeature([ACCUser, User, APSToken]),
+    MulterModule.register({ limits: { fileSize: 500 * 1024 * 1024 } }),
     CacheModule.register(),
     ACCAuthModule,
     HttpModule

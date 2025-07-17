@@ -6,6 +6,7 @@ import { apsConfig } from '../../shared/config/aps.config';
 import { ACCUser } from '../../shared/entities/acc-user.entity';
 import { User } from 'src/shared/entities/user.entity';
 import { RequestService } from 'src/shared/services/request.service';
+import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Injectable()
 export class ACCAuthService {
@@ -19,6 +20,8 @@ export class ACCAuthService {
         @InjectRepository(User)
         private readonly userRepository: Repository<User>,
         private readonly requestService: RequestService,
+        @InjectRepository(APSToken)
+        private readonly apsTokenRepository: Repository<APSToken>,
     ) {}
 
     setAuthCache(accUserId: string, response: { message: string; accUserId: string }) {
@@ -94,6 +97,17 @@ export class ACCAuthService {
         let accUser = await this.accUserRepository.findOne({ where: { accUserId: profile.userId } });
         const expirationTimestamp = Date.now() + (internalCredentials.expires_in * 1000);
 
+        const apsToken = this.apsTokenRepository.create({
+            accUserId: profile.userId,
+            accessToken: internalCredentials.access_token,
+            refreshToken: publicCredentials.refresh_token,
+            expiresAt: new Date(expirationTimestamp),
+            createdAt: new Date(),
+        });
+
+        await this.apsTokenRepository.save(apsToken);
+
+
         if (!accUser) {
             accUser = this.accUserRepository.create({
                 accUserId: profile.userId,
@@ -141,20 +155,20 @@ export class ACCAuthService {
     async getCurrentUserWithValidToken(accUserId: string): Promise<ACCUser> {
         const tokenData = await this.refreshUserTokens(accUserId);
         const user = await this.accUserRepository.findOne({ where: { accUserId } });
-        
+
         if (!user) {
             throw new NotFoundException('ACC User not found');
         }
 
         user.accessToken = tokenData.accessToken;
         user.expiresAt = tokenData.expiresAt;
-        
+
         return user;
     }
 
     async isTokenValid(accUserId: string): Promise<boolean> {
         const user = await this.accUserRepository.findOne({ where: { accUserId } });
-        
+
         if (!user) {
             return false;
         }
@@ -188,7 +202,7 @@ export class ACCAuthService {
     async refreshUserTokens(accUserId: string): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date }> {
         const user = await this.accUserRepository.findOne({ where: { accUserId } });
         if (!user) throw new NotFoundException('ACC User not found');
-    
+
         const now = Date.now();
         if (user.expiresAt.getTime() > now + 5 * 60 * 1000) {
           return { accessToken: user.accessToken, refreshToken: user.refreshToken, expiresAt: user.expiresAt };
@@ -207,31 +221,31 @@ export class ACCAuthService {
           this.refreshPromises.delete(accUserId);
         }
       }
-    
+
       private async _doRefresh(user: ACCUser) {
         try {
           const internal = await this.authenticationClient.refreshToken(
             user.refreshToken, apsConfig.APS_CLIENT_ID,
             { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.INTERNAL_TOKEN_SCOPES },
           );
-    
+
           const pub = await this.authenticationClient.refreshToken(
             internal.refresh_token, apsConfig.APS_CLIENT_ID,
             { clientSecret: apsConfig.APS_CLIENT_SECRET, scopes: apsConfig.PUBLIC_TOKEN_SCOPES },
           );
-    
+
           const expiresAt = new Date(Date.now() + internal.expires_in * 1000);
-    
+
           user.accessToken = internal.access_token;
           user.refreshToken = pub.refresh_token;
           user.expiresAt = expiresAt;
           await this.accUserRepository.save(user);
-    
+
           return { accessToken: internal.access_token, refreshToken: pub.refresh_token, expiresAt };
         } catch (err) {
           console.error('Token refresh failed', err);
           throw new UnauthorizedException('Refresh token invalid or expired – re-auth required.');
         }
       }
-    
+
 }

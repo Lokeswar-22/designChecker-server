@@ -11,18 +11,19 @@ import { RequestService } from 'src/shared/services/request.service';
 import { HttpModule } from '@nestjs/axios';
 import { DataManagementClient } from '@aps_sdk/data-management';
 import { RuleCheckModule } from '../rule-check/rule-check.module';
+import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User]),
+    TypeOrmModule.forFeature([ACCUser, User, APSToken]),
     HttpModule
   ],
   controllers: [HubsController],
   providers: [
-    HubsService, 
-    ACCAuthService, 
-    JWTService, 
-    UserService, 
+    HubsService,
+    ACCAuthService,
+    JWTService,
+    UserService,
     RequestService,
     DataManagementClient,
   ],

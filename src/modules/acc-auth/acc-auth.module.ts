@@ -7,9 +7,10 @@ import { User } from '../../shared/entities/user.entity';
 import { JWTService } from '../../shared/services/jwt.service';
 import { UserService } from '../user/user.service';
 import { RequestService } from '../../shared/services/request.service';
+import { APSToken } from '../../shared/entities/aps-token.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([ACCUser, User])],
+    imports: [TypeOrmModule.forFeature([ACCUser, User, APSToken])],
     controllers: [ACCAuthController],
     providers: [ACCAuthService, JWTService, UserService, RequestService],
     exports: [ACCAuthService]

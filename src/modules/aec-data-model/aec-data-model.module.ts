@@ -9,10 +9,11 @@ import { JWTService } from 'src/shared/services/jwt.service';
 import { UserService } from '../user/user.service';
 import { ACCAuthService } from 'src/modules/acc-auth/acc-auth.service';
 import { RequestService } from 'src/shared/services/request.service';
+import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User]),
+    TypeOrmModule.forFeature([ACCUser, User, APSToken ]),
     HttpModule
   ],
   providers: [AecDataModelService, ACCAuthService, JWTService, UserService, RequestService],

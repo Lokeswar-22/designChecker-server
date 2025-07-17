@@ -9,9 +9,10 @@ import { RequestService } from 'src/shared/services/request.service';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { ACCUser } from 'src/shared/entities/acc-user.entity';
 import { User } from 'src/shared/entities/user.entity';
+import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Document, ACCUser, User])],
+  imports: [TypeOrmModule.forFeature([Document, ACCUser, User, APSToken])],
   providers: [DocumentService, ACCAuthService, JWTService, UserService, RequestService],
   controllers: [DocumentController]
 })
