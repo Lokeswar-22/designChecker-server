@@ -90,4 +90,12 @@ async getProjectId(
   ) {
     return this.hubsService.getProjectsUpload(hubId, accUserId);
   }
+
+  @Get('projects/:projectId/issues')
+  async getIssues(
+    @Param('projectId') projectId: string,
+    @Query('accUserId') accUserId: string,
+  ) {
+    return this.hubsService.getIssues(projectId, accUserId);
+  }
 }

@@ -4,6 +4,7 @@ import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { RequestService } from 'src/shared/services/request.service';
+import axios from 'axios';
 
 @Injectable()
 export class HubsService {
@@ -225,6 +226,18 @@ export class HubsService {
   private convertValueToMM(prop: any): number | any {
     if (!prop.value || typeof prop.value !== 'number') return prop.value;
     return prop.definition.units?.name === 'Meters' ? prop.value * 1000 : prop.value;
+  }
+
+  async getIssues(projectId: string, accUserId:string) {
+
+    const accessToken = await this.accAuthService.getValidAccessToken(accUserId);
+    const API_URL = `https://developer.api.autodesk.com/construction/issues/v1/projects/${projectId}/issues`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+    const response = await axios.get(API_URL, { headers });
+    return response.data;
   }
 
 }
