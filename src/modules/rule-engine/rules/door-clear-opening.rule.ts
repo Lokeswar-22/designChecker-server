@@ -1,39 +1,61 @@
 import { Injectable } from '@nestjs/common';
-import { IRule, RuleResult } from './rule.interface';
+import { IRule, RuleResult, RuleValidationResult } from './rule.interface';
 
 @Injectable()
 export class DoorClearOpeningRule implements IRule {
   ruleId = DoorClearOpeningConfig.ruleId;
   
 
-  validate(elements: any[]): { results: RuleResult[]; summary: any } {
+  validate(elements: any[]): RuleValidationResult {
     const results: RuleResult[] = [];
     let elementsChecked = 0;
     let elementsPassed = 0;
-  
+
+    // Filter only door elements
     elements
       .filter(e => e.category === DoorClearOpeningConfig.category)
       .forEach(e => {
         elementsChecked++;
+
+        // Extract Revit Element ID and IfcGUID
+        const revitProp = e.properties.find(p => p.name === 'Revit Element ID');
+        const ifcProp = e.properties.find(p => p.name === 'IfcGUID');
+        const revitId = revitProp ? String(revitProp.value) : null;
+        const ifcGUID = ifcProp ? String(ifcProp.value) : null;
+
+        // Find the alias used and get its value in mm
         const prop = e.properties.find(p =>
-          DoorClearOpeningConfig.propertyAliases.includes(p.name),
+          DoorClearOpeningConfig.propertyAliases.includes(p.name)
         );
+        const chosenAlias = prop?.name || null;
         const width = prop ? Number(prop.value) : NaN;
-        const passed = !isNaN(width) && width >= DoorClearOpeningConfig.minOpening;
-  
+        const widthMM = !isNaN(width)
+          ? (prop.definition?.units?.name === 'Meters' ? width * 1000 : width)
+          : NaN;
+
+        const passed =
+          !isNaN(widthMM) && widthMM >= DoorClearOpeningConfig.minOpening;
         if (passed) elementsPassed++;
-  
+
         results.push({
-          elementId: e.elementId,
+          elementId: e.id,
+          revitElementId: revitId,
+          ifcGUID,
+          propertyUsed: chosenAlias,
+          widthMM: isNaN(widthMM) ? null : Number(widthMM.toFixed(2)),
           passed,
           message: passed
-            ? `Pass — ${prop?.name || 'Unknown'} = ${width}mm`
-            : isNaN(width)
-              ? `Fail — No known width property found among [${DoorClearOpeningConfig.propertyAliases.join(', ')}]`
-              : `Fail — ${prop?.name} = ${width}mm < required ${DoorClearOpeningConfig.minOpening}mm`
+            ? `Pass — ${chosenAlias} = ${widthMM.toFixed(2)} mm`
+            : isNaN(widthMM)
+              ? `Fail — No known width property found among [${DoorClearOpeningConfig.propertyAliases.join(
+                  ', '
+                )}]`
+              : `Fail — ${chosenAlias} = ${widthMM.toFixed(
+                  2
+                )} mm < required ${DoorClearOpeningConfig.minOpening} mm`
         });
       });
-  
+
     return {
       results,
       summary: {
@@ -44,7 +66,7 @@ export class DoorClearOpeningRule implements IRule {
       }
     };
   }
-  
+
 
 }
 

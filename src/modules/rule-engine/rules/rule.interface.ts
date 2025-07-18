@@ -5,6 +5,10 @@ export interface IRule {
 
 export interface RuleResult {
   elementId: string;
+  revitElementId: string | null;
+  ifcGUID: string | null;
+  propertyUsed: string | null;
+  widthMM: number | null;
   passed: boolean;
   message: string;
 }

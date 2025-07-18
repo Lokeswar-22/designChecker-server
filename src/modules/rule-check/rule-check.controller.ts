@@ -43,8 +43,8 @@ export class RuleCheckController {
     
     const failed = result.results.filter(r => !r.passed);
     const issues = failed.map(f => ({
-      title: `Door clearance issue`,
-      description: f.message,
+      title: `Door clearance issue - Revit Element ID: ${f.revitElementId || f.elementId}`,
+      description: `IfcGUID: ${f.ifcGUID || 'N/A'} | ${f.message}`,
       issueSubtypeId: '0d960e5e-92af-4876-b514-aacbbadaca1e',
       status: 'open',
       assignedTo: checkRuleDto.accUserId.toString(),

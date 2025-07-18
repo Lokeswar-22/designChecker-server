@@ -125,8 +125,8 @@ export class ACCAuthService {
         return accUser;
     }
 
-    async accSync(accUserId: string): Promise<any> {
-        const userID = this.requestService.getUser().userID;
+    async accSync(accUserId: string, userID: number): Promise<any> {
+        // const userID = this.requestService.getUser().userID;
         const user = await this.userRepository.findOne({ where: { userID } });
         if (!user) throw new NotFoundException('User not found');
         const accUser = await this.accUserRepository.findOne({ where: { accUserId } });

@@ -30,9 +30,9 @@ export class ACCAuthController {
     }
 
     @Post('sync')
-    @UseGuards(AuthGuard)
-    async accSync(@Query('accUserId') accUserId: string) {
-        const user = await this.accAuthService.accSync(accUserId);
+    // @UseGuards(AuthGuard)
+    async accSync(@Query('accUserId') accUserId: string, @Query('userID') userID: number) {
+        const user = await this.accAuthService.accSync(accUserId, userID);
         return user;
     }
 
