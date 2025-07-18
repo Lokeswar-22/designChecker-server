@@ -12,4 +12,8 @@ export class CheckRuleDto {
   @IsString()
   @IsNotEmpty()
   category: string;
+
+  @IsString()
+  @IsNotEmpty()
+  projectId: string;
 } 

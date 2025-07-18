@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DataManagementClient } from '@aps_sdk/data-management';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { HttpService } from '@nestjs/axios';
@@ -21,6 +21,7 @@ export class HubsService {
     const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
     if (!accessToken) throw new UnauthorizedException('Login required');
     const resp = await this.dataManagementClient.getHubs({ accessToken: accessToken });
+    console.log(resp.data)
     return resp.data;
   }
 
@@ -28,8 +29,35 @@ export class HubsService {
     const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
     if (!accessToken) throw new UnauthorizedException('Login required');
     const resp = await this.dataManagementClient.getHubProjects(hubId, { accessToken: accessToken });
+    console.log(resp.data)
     return resp.data;
   }
+
+  async getProjectIdByName(apsUserId: string, projectName: string): Promise<string> {
+    const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
+    if (!accessToken) throw new UnauthorizedException('Login required');
+  
+    const hubs = await this.dataManagementClient.getHubs({ accessToken });
+    if (!hubs?.data?.length) throw new NotFoundException('No hubs found for user');
+  
+    for (const hub of hubs.data) {
+      if (!hub.id) continue;  // Skip hubs with no id
+    
+      const projects = await this.dataManagementClient.getHubProjects(hub.id, { accessToken });
+      if (!projects?.data?.length) continue;
+    
+      const foundProject = projects.data.find(
+        (project) => project?.attributes?.name === projectName
+      );
+    
+      if (foundProject) {
+        return foundProject.id;
+      }
+    }
+      
+    throw new NotFoundException(`Project with name "${projectName}" not found in any hub`);
+  }
+  
 
 
   async getTopFolders(hubId: string, projectId: string, accUserId: string) {

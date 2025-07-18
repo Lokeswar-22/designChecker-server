@@ -148,6 +148,36 @@ export class ACCAuthService {
         };
     }
 
+    async userCheckAcc(userID: number): Promise<{ isAccSynced: boolean; isTokenValid: boolean; accUserId?: string }> {
+        const user = await this.userRepository.findOne({ where: { userID } });
+        if (!user) throw new NotFoundException('User not found');
+        
+        const isAccSynced = user.isAccSynced && !!user.accUserId;
+        
+        let isTokenValid = false;
+        
+        if (isAccSynced && user.accUserId) {
+            try {
+                await this.getValidAccessToken(user.accUserId);
+                isTokenValid = true;
+            } catch (error) {
+                console.error('Token validation failed for accUserId:', user.accUserId, error);
+                isTokenValid = false;
+            }
+        }
+        
+        const response: { isAccSynced: boolean; isTokenValid: boolean; accUserId?: string } = {
+            isAccSynced,
+            isTokenValid
+        };
+        
+        if (isAccSynced && isTokenValid && user.accUserId) {
+            response.accUserId = user.accUserId;
+        }
+        
+        return response;
+    }
+
     async getUserProfile(accessToken: string): Promise<any> {
         const response = await fetch('https://developer.api.autodesk.com/userprofile/v1/users/@me', {
             headers: { Authorization: `Bearer ${accessToken}` },

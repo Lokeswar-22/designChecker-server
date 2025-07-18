@@ -20,7 +20,7 @@ interface CacheEntry {
 
 @Injectable()
 export class AccDocsUploadService {
-  private cache = new Map<string, CacheEntry>(); // per-upload cache
+  private cache = new Map<string, CacheEntry>(); 
 
   constructor(
     private readonly accAuth: ACCAuthService,

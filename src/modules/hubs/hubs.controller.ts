@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, UseGuards, Body, Post } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseGuards, Body, Post, BadRequestException } from '@nestjs/common';
 import { HubsService } from './hubs.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 
@@ -58,6 +58,21 @@ export class HubsController {
   async getHubsUpload(@Query('accUserId') accUserId: string) {
     return this.hubsService.getHubsUpload(accUserId);
   }
+
+  @Get('project-id')
+async getProjectId(
+  @Query('accUserId') accUserId: string,
+  @Query('projectName') projectName: string
+) {
+  if (!accUserId || !projectName) {
+    throw new BadRequestException('apsUserId and projectName are required');
+  }
+
+  return {
+    projectId: await this.hubsService.getProjectIdByName(accUserId, projectName),
+  };
+}
+
 
   @Get('projects/:projectId/folders/:folderId/contents')
   async getFolderContents(

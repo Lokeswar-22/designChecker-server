@@ -36,6 +36,49 @@ export class ACCAuthController {
         return user;
     }
 
+    @Post('check-acc-status')
+    async checkAccStatus(@Body() body: { userID: number }) {
+        const { userID } = body;
+        
+        if (!userID) {
+            return {
+                success: false,
+                message: 'User ID is required',
+                data: null
+            };
+        }
+
+        try {
+            const result = await this.accAuthService.userCheckAcc(userID);
+            
+            if (result.isAccSynced && result.isTokenValid) {
+                return {
+                    success: true,
+                    message: 'User is synced with ACC and token is valid',
+                    data: result
+                };
+            } else if (result.isAccSynced && !result.isTokenValid) {
+                return {
+                    success: false,
+                    message: 'User is synced with ACC but token is invalid or expired',
+                    data: result
+                };
+            } else {
+                return {
+                    success: false,
+                    message: 'User is not synced with ACC',
+                    data: result
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.message || 'Failed to check ACC status',
+                data: null
+            };
+        }
+    }
+
     // @Get('token/:accUserId')
     // async getToken(@Param('accUserId') accUserId: string) {
     //     const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
