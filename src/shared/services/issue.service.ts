@@ -45,9 +45,7 @@ export class IssueService {
         }
     });
 
-    console.log(response.data);
-
-    if(response.status === 200) {
+    if(response.status === 201) {
         const issue = new Issue();
         issue.issueId = response.data.issueId;
         issue.issueTypeId = response.data.issueTypeId;

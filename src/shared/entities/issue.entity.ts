@@ -5,27 +5,27 @@ export class Issue {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ nullable: true })
   issueId: string;
 
-  @Column()
+  @Column({ nullable: true })
   issueTypeId: string;
 
-  @Column()
+  @Column({ nullable: true })
   issueSubtypeId: string;
 
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
-  @Column()
+  @Column({ nullable: true })
   description: string;
 
-  @Column()
+  @Column({ nullable: true })
   status: string;
 
   @Column()
   createdAt: Date;
 
-  @Column()
+  @Column({ nullable: true })
   updatedAt: Date;
 }
