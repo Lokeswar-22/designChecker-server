@@ -79,14 +79,15 @@ export class ACCAuthController {
         }
     }
 
-    // @Get('token/:accUserId')
-    // async getToken(@Param('accUserId') accUserId: string) {
-    //     const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
-    //     return {
-    //         access_token: tokenData.accessToken,
-    //         expires_at: tokenData.expiresAt,
-    //     };
-    // }
+    @Get('token/:accUserId')
+    async getToken(@Param('accUserId') accUserId: string) {
+        const token = await this.accAuthService.getValidAccessToken(accUserId);
+        return {
+            access_token: token,
+            refresh_token: token,
+            expires_at: new Date(Date.now() + 3600000).toISOString(),
+        };
+    }
 
     @Get('profile/:accUserId')
     async getProfile(@Param('accUserId') accUserId: string) {

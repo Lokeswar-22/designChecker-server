@@ -28,6 +28,7 @@ export class IssueService {
         startDate: body?.startDate,
         rootCauseId: body?.rootCauseId,
         published: body?.published,
+        linkedDocuments: body?.linkedDocuments,
         // locationId: body?.locationId,
         // locationDetails: body?.locationDetails,
         // issueTemplateId: body?.issueTemplateId,

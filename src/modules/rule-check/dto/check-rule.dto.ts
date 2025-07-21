@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray } from 'class-validator';
 
 export class CheckRuleDto {
   @IsString()
@@ -16,4 +16,8 @@ export class CheckRuleDto {
   @IsString()
   @IsNotEmpty()
   projectId: string;
-} 
+
+  @IsArray()
+  @IsNotEmpty()
+  linkedDocuments: string[];
+}

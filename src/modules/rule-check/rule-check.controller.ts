@@ -53,7 +53,8 @@ export class RuleCheckController {
       startDate: startDate,
       // rootCauseId: 'hardcode',
       published: true,
-      projectId: checkRuleDto.projectId
+      projectId: checkRuleDto.projectId,
+      linkedDocuments: checkRuleDto.linkedDocuments,
     }));
   
     for (const issue of issues) {
