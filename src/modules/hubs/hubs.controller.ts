@@ -1,11 +1,13 @@
 import { Controller, Get, Query, Param, UseGuards, Body, Post, BadRequestException } from '@nestjs/common';
 import { HubsService } from './hubs.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
-
+import { IssueService } from 'src/shared/services/issue.service';
 @Controller('hubs')
 // @UseGuards(AuthGuard)
 export class HubsController {
-  constructor(private readonly hubsService: HubsService) {}
+  constructor(
+    private readonly hubsService: HubsService,
+    private readonly issueService: IssueService) {}
 
   @Post('getAvailableCategories')
   async getAvailableCategories(
@@ -97,5 +99,14 @@ async getProjectId(
     @Query('accUserId') accUserId: string,
   ) {
     return this.hubsService.getIssues(projectId, accUserId);
+  }
+
+  @Post('projects/:projectId/issues')
+  async createIssue(
+    @Param('projectId') projectId: string,
+    @Query('accUserId') accUserId: string,
+    @Body() body: any
+  ) {
+    return this.issueService.createIssue(projectId, accUserId);
   }
 }

@@ -4,19 +4,22 @@ import { Repository } from 'typeorm';
 import axios from 'axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ACCAuthService } from 'src/modules/acc-auth/acc-auth.service';
+import { RequestService } from 'src/shared/services/request.service';
 
 @Injectable()
 export class IssueService {
   constructor(
     @InjectRepository(Issue)
     private readonly issueRepository: Repository<Issue>,
-    private readonly accAuthService: ACCAuthService
+    private readonly accAuthService: ACCAuthService,
+    private readonly requestService: RequestService
   ) {}
 
-  async createIssue(body: any, accUserId: string): Promise<any> {
+  async createIssue(projectId: string, accUserId: string): Promise<any> {
 
+    const body = this.requestService.getBody();
     const accessToken = await this.accAuthService.getValidAccessToken(accUserId);
-    const API_URL  = `https://developer.api.autodesk.com/construction/issues/v1/projects/${body.projectId}/issues`;
+    const API_URL  = `https://developer.api.autodesk.com/construction/issues/v1/projects/${projectId}/issues`;
     const payload = {
         title: body.title,
         description: body?.description,
