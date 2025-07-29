@@ -160,6 +160,8 @@ export class HubsService {
           results {
             id
             name
+                  alternativeIdentifiers { fileUrn fileVersionUrn }
+
           }
           pagination { cursor }
         }
@@ -213,6 +215,26 @@ export class HubsService {
       return {
         elementId: e.id,
         category: 'Doors',
+        properties: e.properties.results.map(p => ({
+          name: p.name,
+          value: this.convertValueToMM(p)
+        }))
+      };
+    });
+
+    return mappedResults;
+  }
+  async fetchRampsWithProperties(elementGroupId: string, accUserId: string, propertyFilter?: string): Promise<any>{
+
+    const graphqlResponse = await this.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
+    if (!graphqlResponse?.elementsByElementGroup?.results) {
+      return [];
+    }
+
+    const mappedResults = graphqlResponse.elementsByElementGroup.results.map(e => {
+      return {
+        elementId: e.id,
+        category: 'Ramps',
         properties: e.properties.results.map(p => ({
           name: p.name,
           value: this.convertValueToMM(p)

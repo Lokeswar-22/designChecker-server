@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthenticationClient, ResponseType } from '@aps_sdk/authentication';
+import { AuthenticationClient, ResponseType, Scopes } from '@aps_sdk/authentication';
 import { apsConfig } from '../../shared/config/aps.config';
 import { ACCUser } from '../../shared/entities/acc-user.entity';
 import { User } from 'src/shared/entities/user.entity';
@@ -255,6 +255,24 @@ export class ACCAuthService {
         } catch (error) {
             console.error('Error getting valid access token for accUserId:', accUserId, error);
             throw error;
+        }
+    }
+
+    async getViewerToken(): Promise<{ access_token: string; expires_in: number }> {
+        try {
+            const credentials = await this.authenticationClient.getTwoLeggedToken(
+                apsConfig.APS_CLIENT_ID,
+                apsConfig.APS_CLIENT_SECRET,
+                [Scopes.ViewablesRead]
+            );
+            
+            return {
+                access_token: credentials.access_token,
+                expires_in: credentials.expires_in
+            };
+        } catch (error) {
+            console.error('Failed to get two-legged token for viewer:', error);
+            throw new UnauthorizedException('Failed to get viewer token');
         }
     }
 

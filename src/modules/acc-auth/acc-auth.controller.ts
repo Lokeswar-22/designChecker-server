@@ -116,4 +116,13 @@ export class ACCAuthController {
             accUserId: null,
         };
     }
+
+    @Get('viewer-token')
+    async getViewerToken() {
+        const token = await this.accAuthService.getViewerToken();
+        return {
+            access_token: token.access_token,
+            expires_in: token.expires_in,
+        };
+    }
 }

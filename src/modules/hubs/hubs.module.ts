@@ -12,10 +12,12 @@ import { HttpModule } from '@nestjs/axios';
 import { DataManagementClient } from '@aps_sdk/data-management';
 import { RuleCheckModule } from '../rule-check/rule-check.module';
 import { APSToken } from 'src/shared/entities/aps-token.entity';
+import { IssueService } from 'src/shared/services/issue.service';
+import { Issue } from 'src/shared/entities/issue.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User, APSToken]),
+    TypeOrmModule.forFeature([ACCUser, User, APSToken, Issue]),
     HttpModule
   ],
   controllers: [HubsController],
@@ -26,6 +28,7 @@ import { APSToken } from 'src/shared/entities/aps-token.entity';
     UserService,
     RequestService,
     DataManagementClient,
+    IssueService,
   ],
   exports: [HubsService],
 })

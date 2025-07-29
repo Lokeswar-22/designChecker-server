@@ -7,23 +7,18 @@ export class DoorClearOpeningRule implements IRule {
   
 
   validate(elements: any[]): RuleValidationResult {
-    const results: RuleResult[] = [];
-    let elementsChecked = 0;
-    let elementsPassed = 0;
-
-    // Filter only door elements
+    const rawResults: RuleResult[] = [];
+  
     elements
       .filter(e => e.category === DoorClearOpeningConfig.category)
       .forEach(e => {
-        elementsChecked++;
-
-        // Extract Revit Element ID and IfcGUID
         const revitProp = e.properties.find(p => p.name === 'Revit Element ID');
         const ifcProp = e.properties.find(p => p.name === 'IfcGUID');
+        const elementContextProp = e.properties.find(p => p.name === 'Element Context');
         const revitId = revitProp ? String(revitProp.value) : null;
         const ifcGUID = ifcProp ? String(ifcProp.value) : null;
-
-        // Find the alias used and get its value in mm
+        const elementContext = elementContextProp ? String(elementContextProp.value) : null;
+  
         const prop = e.properties.find(p =>
           DoorClearOpeningConfig.propertyAliases.includes(p.name)
         );
@@ -32,37 +27,45 @@ export class DoorClearOpeningRule implements IRule {
         const widthMM = !isNaN(width)
           ? (prop.definition?.units?.name === 'Meters' ? width * 1000 : width)
           : NaN;
-
-        const passed =
-          !isNaN(widthMM) && widthMM >= DoorClearOpeningConfig.minOpening;
-        if (passed) elementsPassed++;
-
-        results.push({
+  
+        const passed = !isNaN(widthMM) && widthMM >= DoorClearOpeningConfig.minOpening;
+  
+        const message = passed
+          ? `Pass — ${chosenAlias} = ${widthMM.toFixed(2)} mm`
+          : isNaN(widthMM)
+            ? `Fail — No known width property found among [${DoorClearOpeningConfig.propertyAliases.join(', ')}]`
+            : `Fail — ${chosenAlias} = ${widthMM.toFixed(2)} mm < required ${DoorClearOpeningConfig.minOpening} mm`;
+  
+        rawResults.push({
           elementId: e.id,
           revitElementId: revitId,
           ifcGUID,
+          elementContext,
           propertyUsed: chosenAlias,
           widthMM: isNaN(widthMM) ? null : Number(widthMM.toFixed(2)),
           passed,
-          message: passed
-            ? `Pass — ${chosenAlias} = ${widthMM.toFixed(2)} mm`
-            : isNaN(widthMM)
-              ? `Fail — No known width property found among [${DoorClearOpeningConfig.propertyAliases.join(
-                  ', '
-                )}]`
-              : `Fail — ${chosenAlias} = ${widthMM.toFixed(
-                  2
-                )} mm < required ${DoorClearOpeningConfig.minOpening} mm`
+          message
         });
       });
-
+  
+    // Filter only valid "Instance" results and exclude undefined width messages
+    const instanceResults = rawResults.filter(
+      r =>
+        r.elementContext === 'Instance' &&
+        !r.message.includes('No known width property')
+    );
+  
+    const totalChecked = instanceResults.length;
+    const totalPassed = instanceResults.filter(r => r.passed).length;
+    const totalFailed = totalChecked - totalPassed;
+  
     return {
-      results,
+      results: instanceResults,
       summary: {
-        totalElementsFound: elements.length,
-        totalElementsChecked: elementsChecked,
-        totalPassed: elementsPassed,
-        totalFailed: elementsChecked - elementsPassed
+        totalElementsFound: totalChecked,     // only valid Instance elements
+        totalElementsChecked: totalChecked,
+        totalPassed,
+        totalFailed
       }
     };
   }

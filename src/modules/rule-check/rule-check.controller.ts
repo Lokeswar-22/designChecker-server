@@ -66,4 +66,71 @@ export class RuleCheckController {
     // return { rule: 'door_clear_opening', ...result, issuesCreated: issues.length };
 
   }
+
+  @Post('rule2')
+  async checkLevelLandingProxy(@Body() checkRuleDto: CheckRuleDto) {
+    const ramps = await this.aecData.fetchRampsWithProperties(
+      checkRuleDto.elementGroupId,
+      checkRuleDto.accUserId,
+      checkRuleDto.category,
+    );
+    {
+
+    const validation = this.ruleEngine.executeRule('ramp_landing_proxy', ramps);
+    return {
+      rule: 'ramp_landing_proxy',
+      ...validation
+    };
+  }
+
+}
+
+
+@Post('rule3')
+async checkRampGradient(@Body() checkRuleDto: CheckRuleDto) {
+  const ramps = await this.aecData.fetchRampsWithProperties(
+    checkRuleDto.elementGroupId,
+    checkRuleDto.accUserId,
+    checkRuleDto.category,
+  );
+  const validation = this.ruleEngine.executeRule('ramp_gradient', ramps);
+  return {
+    rule: 'ramp_gradient',
+    ...validation
+  };
+}
+
+@Post('rule4')
+async checkStairHandrail(@Body() checkRuleDto: CheckRuleDto) {
+  const stairs = await this.aecData.fetchPropertiesForRules(
+    checkRuleDto.elementGroupId,
+    checkRuleDto.accUserId,
+    checkRuleDto.category,
+  );
+  const validation = this.ruleEngine.executeRule('stair_handrail', stairs);
+  return {
+    rule: 'stair_handrail',
+    ...validation
+  };
+}
+
+@Post('rule5')
+async checkWashroomDimensionProxy(@Body() checkRuleDto: CheckRuleDto) {
+  const walls = await this.aecData.fetchPropertiesForRules(
+    checkRuleDto.elementGroupId,
+    checkRuleDto.accUserId,
+    checkRuleDto.category,
+  );
+  const validation = this.ruleEngine.executeRule('washroom_dimensions_proxy', walls);
+  return {
+    rule: 'washroom_dimensions_proxy',
+    ...validation
+  };
+}
+
+
+
+
+
+
 }
