@@ -90,7 +90,7 @@ export class UserService {
       }
 
     async passwordCheck(password: string, passwordToCheck: string) {
-        return password === passwordToCheck;
+        return await bcrypt.compare(passwordToCheck, password);
     }
 
     async updateTemporaryPassword(userID: number, password: string) {
