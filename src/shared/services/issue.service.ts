@@ -19,11 +19,12 @@ export class IssueService {
 
     const body = this.requestService.getBody();
     const accessToken = await this.accAuthService.getValidAccessToken(accUserId);
+    const issueSubtypeId = await this.getIssueSubtypeId(projectId, accessToken);
     const API_URL  = `https://developer.api.autodesk.com/construction/issues/v1/projects/${projectId}/issues`;
     const payload = {
         title: body.title,
         description: body?.description,
-        issueSubtypeId: body?.issueSubtypeId,
+        issueSubtypeId: issueSubtypeId.toString(),
         status: body?.status,
         assignedTo: body?.assignedTo,
         assignedToType: body?.assignedToType,
@@ -53,7 +54,7 @@ export class IssueService {
         const issue = new Issue();
         issue.issueId = response.data.issueId;
         issue.issueTypeId = response.data.issueTypeId;
-        issue.issueSubtypeId = response.data.issueSubtypeId;
+        issue.issueSubtypeId = response.data.issueSubtypeId.toString();
         issue.title = body.title;
         issue.description = body.description;
         issue.status = body.status;
@@ -63,4 +64,15 @@ export class IssueService {
     return true;
 
   }
+
+ async getIssueSubtypeId(projectId: string, accessToken: string) {
+  const resp = await axios.get(`https://developer.api.autodesk.com/construction/issues/v1/projects/${projectId}/issue-types?include=subtypes`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  return resp.data.results[0].subtypes[0].id;
+ }
 }
