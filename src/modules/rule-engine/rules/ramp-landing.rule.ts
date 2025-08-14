@@ -1,75 +1,144 @@
 import { Injectable } from '@nestjs/common';
-import { IRule, RuleValidationResult, RuleResult, RuleResultWithSlope } from './rule.interface';
+import { IRule, RuleValidationResult, RuleResult } from './rule.interface';
 
-const RampLandingProxyConfig = {
-  ruleId: 'ramp_landing_proxy',
-  category: 'Ramps',
-  maxSlopeForNoLanding: 25, // i.e. slope denominator ≥ 25 means gradient gentler than or equal 1:25
-  minWidth: 1500            // mm
-};
+interface RampTypeInstanceMapping {
+  typeInfo: any;
+  instances: any[];
+}
 
 @Injectable()
 export class RampLandingProxyRule implements IRule {
-  ruleId = RampLandingProxyConfig.ruleId;
+  ruleId = 'ramp_landing_proxy';
 
   validate(elements: any[]): RuleValidationResult {
-    const results: RuleResultWithSlope[] = [];
-    let checked = 0;
-    let passedCount = 0;
+    const results: RuleResult[] = [];
+    
+    // Filter ramp elements
+    const rampElements = elements.filter(e => 
+      e.properties.some(p => p.name === 'Revit Category Type Id' && p.value === 'Ramps')
+    );
+    
+    // Separate Type and Instance elements
+    const typeElements = rampElements.filter(e => {
+      const elementContextProp = e.properties.find(p => p.name === 'Element Context');
+      return elementContextProp?.value === 'Type';
+    });
+    
+    const instanceElements = rampElements.filter(e => {
+      const elementContextProp = e.properties.find(p => p.name === 'Element Context');
+      return elementContextProp?.value === 'Instance';
+    });
 
-    elements.filter(e => e.category === RampLandingProxyConfig.category)
-      .forEach(e => {
-        const slopeProp = e.properties.find(p => p.name === 'Ramp Max Slope (1/x)');
-        const widthProp = e.properties.find(p => p.name === 'Width');
-        const elementContextProp = e.properties.find(p => p.name === 'Element Context');
-        const elementContext = elementContextProp ? String(elementContextProp.value) : null;
-        
-        // Only process elements with "Instance" context
-        if (elementContext !== 'Instance') {
-          return;
+    // Check if there are no Instance elements to validate
+    if (instanceElements.length === 0) {
+      return {
+        results: [],
+        summary: {
+          totalElementsFound: 0,
+          totalElementsChecked: 0,
+          totalPassed: 0,
+          totalFailed: 0,
         }
+      };
+    }
+
+    // Create Type-to-Instance mapping
+    const typeToInstanceMap = this.createTypeInstanceMapping(typeElements, instanceElements);
+
+    // If no valid mappings exist, return no instances message
+    if (typeToInstanceMap.length === 0) {
+      return {
+        results: [],
+        summary: {
+          totalElementsFound: instanceElements.length,
+          totalElementsChecked: 0,
+          totalPassed: 0,
+          totalFailed: 0,
+        }
+      };
+    }
+
+    // Validate on Type elements and create results for Instance elements
+    typeToInstanceMap.forEach((mapping: RampTypeInstanceMapping) => {
+      const typeElement = mapping.typeInfo;
+      const instances = mapping.instances;
+
+      // Extract validation data from type element
+      const widthProperty = typeElement.properties.find((p: any) => p.name === 'Width');
+      const width = widthProperty ? Number(widthProperty.value) : 0;
+
+      // Infer landing depth as 120% of width, convert to mm
+      const landingDepthMM = width * 1.2 * 1000;
+      const requiredDepthMM = 1520;
+      const passed = landingDepthMM >= requiredDepthMM;
+
+      // Create message
+      const message = passed
+        ? `Pass — inferred landing depth ${landingDepthMM.toFixed(0)}mm ≥ required ${requiredDepthMM}mm`
+        : `Fail — inferred landing depth ${landingDepthMM.toFixed(0)}mm < required ${requiredDepthMM}mm`;
+
+      // Create results for each corresponding Instance element
+      instances.forEach((instanceElement: any) => {
+        const revitProp = instanceElement.properties.find((p: any) => p.name === 'Revit Element ID');
+        const ifcProp = instanceElement.properties.find((p: any) => p.name === 'IfcGUID');
+        const elementContextProp = instanceElement.properties.find((p: any) => p.name === 'Element Context');
         
-        checked++;
-        const slope = slopeProp ? Number(slopeProp.value) : NaN;
-        const width = widthProp ? Number(widthProp.value) : NaN;
-
-        const slopeValid = !isNaN(slope) && slope >= RampLandingProxyConfig.maxSlopeForNoLanding;
-        const widthValid = !isNaN(width) && width >= RampLandingProxyConfig.minWidth;
-        const passed = slopeValid && widthValid;
-        if (passed) passedCount++;
-
-        const revitId = e.properties.find(p => p.name === 'Revit Element ID')?.value || null;
-        const ifcGUID = e.properties.find(p => p.name === 'IfcGUID')?.value || null;
-
-        const messageParts: string[] = [];
-        if (!slopeValid) messageParts.push(`Ramp slope 1:${slope} too steep (>1:${RampLandingProxyConfig.maxSlopeForNoLanding})`);
-        if (!widthValid) messageParts.push(`Width ${width}mm < required ${RampLandingProxyConfig.minWidth}mm`);
-
-        const message = passed
-          ? `Pass — slope 1:${slope}, width ${width}mm acceptable`
-          : `Fail — ${messageParts.join('; ')}`;
+        const revitId = revitProp ? String(revitProp.value) : null;
+        const ifcGUID = ifcProp ? String(ifcProp.value) : null;
+        const elementContext = elementContextProp ? String(elementContextProp.value) : null;
 
         results.push({
-          elementId: e.id,
+          elementId: instanceElement.id,
           revitElementId: revitId,
           ifcGUID,
-          propertyUsed: null,
           elementContext,
-          slope,
-          widthMM: width,
+          propertyUsed: 'Inferred Landing Depth',
+          widthMM: landingDepthMM,
           passed,
-          message,
+          message
         });
       });
+    });
+
+    const totalChecked = results.length;
+    const totalPassed = results.filter(r => r.passed).length;
+    const totalFailed = totalChecked - totalPassed;
 
     return {
       results,
       summary: {
-        totalElementsFound: elements.filter(e => e.category === RampLandingProxyConfig.category).length,
-        totalElementsChecked: checked,
-        totalPassed: passedCount,
-        totalFailed: checked - passedCount,
+        totalElementsFound: totalChecked,
+        totalElementsChecked: totalChecked,
+        totalPassed,
+        totalFailed
       }
     };
+  }
+
+  private createTypeInstanceMapping(typeElements: any[], instanceElements: any[]): RampTypeInstanceMapping[] {
+    const mapping: RampTypeInstanceMapping[] = [];
+
+    typeElements.forEach(typeElement => {
+      const typeElementName = typeElement.properties.find((p: any) => p.name === 'Element Name')?.value;
+      const typeFamilyName = typeElement.properties.find((p: any) => p.name === 'Family Name')?.value;
+
+      if (!typeElementName || !typeFamilyName) return;
+
+      const matchingInstances = instanceElements.filter(instanceElement => {
+        const instanceElementName = instanceElement.properties.find((p: any) => p.name === 'Element Name')?.value;
+        const instanceFamilyName = instanceElement.properties.find((p: any) => p.name === 'Family Name')?.value;
+        
+        return instanceElementName === typeElementName && instanceFamilyName === typeFamilyName;
+      });
+
+      if (matchingInstances.length > 0) {
+        mapping.push({
+          typeInfo: typeElement,
+          instances: matchingInstances
+        });
+      }
+    });
+
+    return mapping;
   }
 }

@@ -1,97 +1,144 @@
 import { Injectable } from '@nestjs/common';
 import { IRule, RuleValidationResult, RuleResult } from './rule.interface';
 
-const RampGradientConfig = {
-  ruleId: 'ramp_gradient',
-  category: 'Ramps',
-  // Table 4 limits: rise not available → assume slope denominator thresholds:
-  // For 0–15mm rise: max slope 1:2 → denom ≤2
-  // ... >200 mm rise: max slope 1:12 → denom ≤12
-  // Here we assume worst-case: allow slopes ≥ 12 (gentlest), ≤2 steepest
-  allowedMinDenominator: 2,
-  allowedMaxDenominator: 12,
-  consistencyTolerancePct: 10 // percent tolerance for consistency
-};
+interface RampTypeInstanceMapping {
+  typeInfo: any;
+  instances: any[];
+}
 
 @Injectable()
 export class RampGradientRule implements IRule {
-  ruleId = RampGradientConfig.ruleId;
+  ruleId = 'ramp_gradient';
 
   validate(elements: any[]): RuleValidationResult {
     const results: RuleResult[] = [];
-    let checked = 0;
-    let passedCount = 0;
-
-    const ramps = elements.filter(e => e.category === RampGradientConfig.category);
-
-    for (const e of ramps) {
+    
+    // Filter ramp elements
+    const rampElements = elements.filter(e => 
+      e.properties.some(p => p.name === 'Revit Category Type Id' && p.value === 'Ramps')
+    );
+    
+    // Separate Type and Instance elements
+    const typeElements = rampElements.filter(e => {
       const elementContextProp = e.properties.find(p => p.name === 'Element Context');
-      const elementContext = elementContextProp ? String(elementContextProp.value) : null;
-      
-      // Only process elements with "Instance" context
-      if (elementContext !== 'Instance') {
-        continue;
-      }
-      
-      checked++;
-      const slopeProps = e.properties.filter(p => p.name === 'Ramp Max Slope (1/x)');
-      const slopeList = slopeProps.map(p => Number(p.value)).filter(v => !isNaN(v));
+      return elementContextProp?.value === 'Type';
+    });
+    
+    const instanceElements = rampElements.filter(e => {
+      const elementContextProp = e.properties.find(p => p.name === 'Element Context');
+      return elementContextProp?.value === 'Instance';
+    });
 
-      let passed = true;
-      const issues: string[] = [];
-
-      if (slopeList.length === 0) {
-        passed = false;
-        issues.push('No slope data available');
-      } else {
-        // Check each reading against max allowed steepness: denom >= allowedMaxDenominator
-        slopeList.forEach(den => {
-          if (den < RampGradientConfig.allowedMaxDenominator) {
-            passed = false;
-            issues.push(`Slope 1:${den} is steeper than allowed 1:${RampGradientConfig.allowedMaxDenominator}`);
-          }
-        });
-        // If multiple readings, check consistency
-        if (slopeList.length > 1) {
-          const avg = slopeList.reduce((a, b) => a + b, 0) / slopeList.length;
-          slopeList.forEach(den => {
-            const diffPct = Math.abs(den - avg) / avg * 100;
-            if (diffPct > RampGradientConfig.consistencyTolerancePct) {
-              passed = false;
-              issues.push(`Slope inconsistent: values ${slopeList.join(', ')}`);
-            }
-          });
+    // Check if there are no Instance elements to validate
+    if (instanceElements.length === 0) {
+      return {
+        results: [],
+        summary: {
+          totalElementsFound: 0,
+          totalElementsChecked: 0,
+          totalPassed: 0,
+          totalFailed: 0
         }
-      }
-
-      if (passed) passedCount++;
-
-      const revitId = e.properties.find(p => p.name === 'Revit Element ID')?.value || null;
-      const ifcGUID = e.properties.find(p => p.name === 'IfcGUID')?.value || null;
-
-      results.push({
-        elementId: e.id,
-        revitElementId: revitId,
-        ifcGUID,
-        propertyUsed: 'Ramp Max Slope (1/x)',
-        elementContext,
-        widthMM: null,
-        slopeDenominator: slopeList.length === 1 ? slopeList[0] : null,
-        passed,
-        message: passed
-          ? `Pass — slope(s): ${slopeList.join(', ')} acceptable`
-          : `Fail — ${issues.join('; ')}`
-      });
+      };
     }
+
+    // Create Type-to-Instance mapping
+    const typeToInstanceMap = this.createTypeInstanceMapping(typeElements, instanceElements);
+
+    // If no valid mappings exist, return no instances message
+    if (typeToInstanceMap.length === 0) {
+      return {
+        results: [],
+        summary: {
+          totalElementsFound: instanceElements.length,
+          totalElementsChecked: 0,
+          totalPassed: 0,
+          totalFailed: 0
+        }
+      };
+    }
+
+    // Validate on Type elements and create results for Instance elements
+    typeToInstanceMap.forEach((mapping: RampTypeInstanceMapping) => {
+      const typeElement = mapping.typeInfo;
+      const instances = mapping.instances;
+
+      // Extract validation data from type element
+      const slopeProperty = typeElement.properties.find((p: any) => p.name === 'Slope');
+      const slope = slopeProperty ? Number(slopeProperty.value) : 0;
+
+      // Convert to percentage and check against 8.33% limit
+      const slopePercentage = slope * 100;
+      const passed = slopePercentage <= 8.33;
+
+      // Create message
+      const message = passed
+        ? `Pass — slope ${slopePercentage.toFixed(2)}% ≤ 8.33%`
+        : `Fail — slope ${slopePercentage.toFixed(2)}% > 8.33% limit`;
+
+      // Create results for each corresponding Instance element
+      instances.forEach((instanceElement: any) => {
+        const revitProp = instanceElement.properties.find((p: any) => p.name === 'Revit Element ID');
+        const ifcProp = instanceElement.properties.find((p: any) => p.name === 'IfcGUID');
+        const elementContextProp = instanceElement.properties.find((p: any) => p.name === 'Element Context');
+        
+        const revitId = revitProp ? String(revitProp.value) : null;
+        const ifcGUID = ifcProp ? String(ifcProp.value) : null;
+        const elementContext = elementContextProp ? String(elementContextProp.value) : null;
+
+        results.push({
+          elementId: instanceElement.id,
+          revitElementId: revitId,
+          ifcGUID,
+          elementContext,
+          slope: slopePercentage,
+          propertyUsed: 'Slope',
+          widthMM: null,
+          passed,
+          message
+        });
+      });
+    });
+
+    const totalChecked = results.length;
+    const totalPassed = results.filter(r => r.passed).length;
+    const totalFailed = totalChecked - totalPassed;
 
     return {
       results,
       summary: {
-        totalElementsFound: ramps.length,
-        totalElementsChecked: checked,
-        totalPassed: passedCount,
-        totalFailed: checked - passedCount,
+        totalElementsFound: totalChecked,
+        totalElementsChecked: totalChecked,
+        totalPassed,
+        totalFailed
       }
     };
+  }
+
+  private createTypeInstanceMapping(typeElements: any[], instanceElements: any[]): RampTypeInstanceMapping[] {
+    const mapping: RampTypeInstanceMapping[] = [];
+
+    typeElements.forEach(typeElement => {
+      const typeElementName = typeElement.properties.find((p: any) => p.name === 'Element Name')?.value;
+      const typeFamilyName = typeElement.properties.find((p: any) => p.name === 'Family Name')?.value;
+
+      if (!typeElementName || !typeFamilyName) return;
+
+      const matchingInstances = instanceElements.filter(instanceElement => {
+        const instanceElementName = instanceElement.properties.find((p: any) => p.name === 'Element Name')?.value;
+        const instanceFamilyName = instanceElement.properties.find((p: any) => p.name === 'Family Name')?.value;
+        
+        return instanceElementName === typeElementName && instanceFamilyName === typeFamilyName;
+      });
+
+      if (matchingInstances.length > 0) {
+        mapping.push({
+          typeInfo: typeElement,
+          instances: matchingInstances
+        });
+      }
+    });
+
+    return mapping;
   }
 }
