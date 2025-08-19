@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Issue } from 'src/shared/entities/issue.entity';
 import { RequestService } from 'src/shared/services/request.service';
 import { CacheModule } from '@nestjs/cache-manager';
+import { Redis } from 'ioredis';
 
 @Module({
   imports: [
@@ -19,6 +20,17 @@ import { CacheModule } from '@nestjs/cache-manager';
     })
   ],
   controllers: [RuleEngineController],
-  providers: [RuleEngineService, IssueService,RequestService]
+  providers: [
+    RuleEngineService,
+    IssueService,
+    RequestService,
+    {
+      provide: Redis,
+      useFactory: () => new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+      }),
+    }
+  ]
 })
 export class RuleEngineModule {}

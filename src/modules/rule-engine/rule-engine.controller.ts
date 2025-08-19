@@ -50,7 +50,7 @@ export class RuleEngineController {
    const res1 = await this.ruleEngineService.getDoorsType(elementGroupId, accUserId);
    const res2 = await this.ruleEngineService.getDoorsInstance(elementGroupId, accUserId);
 
-    if(res1 && res2) return `Data Cached Successfully`;
+    if(res1 && res2) return {res1,res2};
   }
 
   @Post('projects/:projectId/createissues')

@@ -3,6 +3,7 @@ import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Redis } from 'ioredis';
 
 // Export the interface for use in controller
 export interface DoorValidationResult {
@@ -43,7 +44,8 @@ export class RuleEngineService {
   constructor(
     public accAuthService: ACCAuthService,
     private readonly http: HttpService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly redis: Redis
   ){}
 
   private async queryGraphQL(query: string, variables: any = {}, accUserId: string) {
@@ -181,12 +183,20 @@ export class RuleEngineService {
 
   async getCachedDoorData(elementGroupId: string, accUserId: string): Promise<CachedDoorData> {
 
-    const cacheKey = `GET:/rule-engine/getDoorData/${elementGroupId}?accUserId=${accUserId}`;
+    const cacheKey = `Cache Key:GET:/rule-engine/getDoorData/${elementGroupId}?accUserId=${accUserId}`;
+    const cachedData = await this.redis.get(cacheKey) as CachedDoorData | null;
+    console.log("cachedData : ", cachedData);
 
-    const cachedData = await this.cacheManager.get(cacheKey) as CachedDoorData | null;
     if (cachedData) {
-      return cachedData;
-    }
+      console.log(cachedData)
+        try {
+              const parsedData = JSON.parse(cachedData as unknown as string) as CachedDoorData;
+          return parsedData;
+        } catch (error) {
+          console.error('Failed to parse cached data:', error);
+          await this.redis.del(cacheKey);
+        }
+      }
     const res1 = await this.getDoorsType(elementGroupId, accUserId);
     const res2 = await this.getDoorsInstance(elementGroupId, accUserId);
     const data: CachedDoorData = {res1,res2};
