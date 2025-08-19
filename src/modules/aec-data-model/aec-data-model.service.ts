@@ -40,6 +40,8 @@ export class AecDataModelService {
     }
 
     async getElementGroupsBasedOnMetadata(accUserId: string) {
+        console.log("ddsdsdwwq")
+
         const query = `
         query elementGroupsByHub(
             $hubId: ID!
@@ -95,6 +97,8 @@ export class AecDataModelService {
     }
 
     async getInstancesOfAParticularType(accUserId : string) {
+        console.log("ddsdsdasdasd")
+
         const query = `
         query ($elementGroupId: ID!, $propertyFilter: String!) {
             elementsByElementGroup(
@@ -141,6 +145,8 @@ export class AecDataModelService {
     }
 
     async getElementInstancesInACategoryByVersion(accUserId : string) {
+        console.log("ddasdasdsdsd")
+
         const query = `
         query GetWallsElementsByElementGroupIdAtVersion(
             $elementGroupId: ID!,
@@ -175,6 +181,8 @@ export class AecDataModelService {
     }
 
     async getProjectElementsWithSpecificProperties(accUserId : string) {
+                console.log("ddsdsdww")
+
         const query = `
         query GetElementsInProject($projectId: ID!, $propertyFilter: String!) {
             elementsByProject(
@@ -211,25 +219,38 @@ export class AecDataModelService {
     }
 
     async listAllElementsHavingConcreteMaterialInAElementGroup(accUserId : string) {
+        console.log("ddsdsd")
         const query = `
-        query GetConcreteMaterials($elementGroupId: ID!, $propertyFilter: String!) {
-            elementsByElementGroup(
-                elementGroupId: $elementGroupId,
-                filter: { query: $propertyFilter },
-                pagination: { limit: 20 }
-            ) {
-                results {
-                    id
-                    name
-                }
-            }
-        }`;
+        query GetElementsPage(
+  $elementGroupId: ID!,
+  $propertyFilter: String!,
+  $cursor: String,
+  $limit: Int = 500
+) {
+  elementsByElementGroup(
+    elementGroupId: $elementGroupId
+    filter: { query: $propertyFilter }
+    pagination: { cursor: $cursor, limit: $limit }
+  ) {
+    pagination {
+      cursor # pass this into the next request's $cursor
+    }
+    results {
+      id
+      name
+      # add the fields you really need; fewer fields = faster + fewer point costs
+    }
+  }
+}
+`;
         const { elementGroupId, propertyFilter } = await this.requestService.getBody();
         const variables = { elementGroupId, propertyFilter };
         return this.queryGraphQL(query, variables, accUserId);
     }
 
     async listElementInstancesHavingConcreteMaterial(accUserId : string) {
+        console.log("ddsdadgsdgsdgsd")
+
         const query = `
         query GetInstancesOfConcreteMaterial($elementGroupId: ID!, $propertyFilter: String!) {
             elementsByElementGroup(
@@ -270,6 +291,8 @@ export class AecDataModelService {
     }
 
     async listElementsHavingConcreteMaterialByUsingReferenceType(accUserId : string) {
+        console.log("ddsdadgsddddgsdgsd")
+
         const query = `
         query GetInstancesOfConcreteMaterial($elementGroupId: ID!, $propertyFilter: String!) {
             elementsByElementGroup(
@@ -320,6 +343,8 @@ export class AecDataModelService {
     }
 
     async retrieveDistinctValuesByName(accUserId: string) {
+        console.log("ddsdadgsdasdasdasdasdasfvgsdgdfgsdgsd")
+
         const query = `
         query ($elementGroupId: ID!, $name: String!, $filter: ElementFilterInput, $pagination: PaginationInput) {
             distinctPropertyValuesInElementGroupByName(

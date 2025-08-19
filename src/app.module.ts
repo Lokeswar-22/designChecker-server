@@ -9,7 +9,6 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.module';
 import { RuleEngineModule } from './modules/rule-engine/rule-engine.module';
-import { RuleCheckModule } from './modules/rule-check/rule-check.module';
 
 @Module({
   imports: [
@@ -26,7 +25,8 @@ import { RuleCheckModule } from './modules/rule-check/rule-check.module';
     AccDocsUploadModule,
     AecDataModelModule,
     RuleEngineModule,
-    RuleCheckModule,
+
   ],
+  controllers: [],
 })
 export class AppModule {}

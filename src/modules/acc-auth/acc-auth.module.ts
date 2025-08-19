@@ -8,9 +8,11 @@ import { JWTService } from '../../shared/services/jwt.service';
 import { UserService } from '../user/user.service';
 import { RequestService } from '../../shared/services/request.service';
 import { APSToken } from '../../shared/entities/aps-token.entity';
+import { HttpModule } from '@nestjs/axios';
+import { RuleEngineModule } from '../rule-engine/rule-engine.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([ACCUser, User, APSToken])],
+    imports: [TypeOrmModule.forFeature([ACCUser, User, APSToken]),HttpModule],
     controllers: [ACCAuthController],
     providers: [ACCAuthService, JWTService, UserService, RequestService],
     exports: [ACCAuthService]

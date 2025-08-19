@@ -10,7 +10,6 @@ import { User } from 'src/shared/entities/user.entity';
 import { RequestService } from 'src/shared/services/request.service';
 import { HttpModule } from '@nestjs/axios';
 import { DataManagementClient } from '@aps_sdk/data-management';
-import { RuleCheckModule } from '../rule-check/rule-check.module';
 import { APSToken } from 'src/shared/entities/aps-token.entity';
 import { IssueService } from 'src/shared/services/issue.service';
 import { Issue } from 'src/shared/entities/issue.entity';
@@ -29,6 +28,7 @@ import { Issue } from 'src/shared/entities/issue.entity';
     RequestService,
     DataManagementClient,
     IssueService,
+    
   ],
   exports: [HubsService],
 })

@@ -169,53 +169,122 @@ export class HubsService {
     return this.queryGraphQL(q, { projectId }, accUserId);
   }
 
-  async getElementsFromCategory(elementGroupId: string, accUserId: string, propertyFilter?: string) {
-
-    const q = `
-      query ($elementGroupId: ID!, $filter: ElementFilterInput) {
+  async getElementsFromCategory(
+    elementGroupId: string,
+    accUserId: string,
+    propertyFilter?: string
+  ) {
+    // --- 1) GraphQL documents ---
+    const ELEMENTS_PAGE = `
+      query ($elementGroupId: ID!, $filter: ElementFilterInput, $cursor: String, $limit: Int = 500) {
         elementsByElementGroup(
           elementGroupId: $elementGroupId,
-          filter: $filter
+          filter: $filter,
+          pagination: { cursor: $cursor, limit: $limit }
         ) {
-          pagination {
-            cursor
-          }
-          results {
-            id
-            name
-            properties {
-              results {
-                name
-                value
-                definition {
-                  units {
-                    name
-                  }
-                }
-              }
+          pagination { cursor }
+          results { id name }
+        }
+      }`;
+  
+    // elementAtTip lets us fetch a single element and page its properties
+    // (Properties itself is a paginated object in the AEC DM API).
+    const ELEMENT_PROPERTIES_PAGE = `
+      query ($elementId: ID!, $cursor: String, $limit: Int = 500) {
+        elementAtTip(elementId: $elementId) {
+          id
+          name
+          properties(pagination: { cursor: $cursor, limit: $limit }) {
+            pagination { cursor }
+            results {
+              name
+              value
+              definition { units { name } }
             }
           }
         }
       }`;
-
-    const variables: any = { elementGroupId };
-    if (propertyFilter) variables.filter = { query: propertyFilter };
-    const result = await this.queryGraphQL(q, variables, accUserId);
-    return result;
+  
+    // --- 2) Fetch ALL elements (cursor loop) ---
+    const allElementIds: string[] = [];
+    const allElementsBasic: Record<string, { id: string; name: string }> = {};
+    let cursor: string | null = null;
+  
+    do {
+      const variables: any = { elementGroupId, cursor, limit: 500 };
+      if (propertyFilter) variables.filter = { query: propertyFilter };
+  
+      const page = await this.queryGraphQL(ELEMENTS_PAGE, variables, accUserId);
+      const block = page?.elementsByElementGroup;
+      const results = block?.results ?? [];
+  
+      for (const e of results) {
+        allElementIds.push(e.id);
+        allElementsBasic[e.id] = { id: e.id, name: e.name };
+      }
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+  
+    // --- 3) For each element, fetch ALL properties (cursor loop per element) ---
+    // Throttle/batch to be nice to rate limits; adjust BATCH_SIZE if needed.
+    // (AEC DM enforces point-based rate limits—keep field selection tight.) :contentReference[oaicite:1]{index=1}
+    const BATCH_SIZE = 10;
+  
+    const resultsFull: Array<{
+      id: string;
+      name: string;
+      properties: Array<{
+        name: string;
+        value: any;
+        definition?: { units?: { name?: string } | null } | null;
+      }>;
+    }> = [];
+  
+    for (let i = 0; i < allElementIds.length; i += BATCH_SIZE) {
+      const slice = allElementIds.slice(i, i + BATCH_SIZE);
+  
+      const batch = slice.map(async (elementId) => {
+        let pcursor: string | null = null;
+        const props: any[] = [];
+  
+        do {
+          const v = { elementId, cursor: pcursor, limit: 500 };
+          const resp = await this.queryGraphQL(ELEMENT_PROPERTIES_PAGE, v, accUserId);
+          const node = resp?.elementAtTip;
+          const pblock = node?.properties;
+  
+          if (pblock?.results?.length) props.push(...pblock.results);
+          pcursor = pblock?.pagination?.cursor ?? null;
+        } while (pcursor);
+  
+        return {
+          id: elementId,
+          name: allElementsBasic[elementId]?.name ?? "",
+          properties: props,
+        };
+      });
+  
+      const batchOut = await Promise.all(batch);
+      resultsFull.push(...batchOut);
+    }
+  
+    return resultsFull;
   }
+  
 
   async fetchPropertiesForRules(elementGroupId: string, accUserId: string, propertyFilter?: string): Promise<any>{
 
     const graphqlResponse = await this.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
-    if (!graphqlResponse?.elementsByElementGroup?.results) {
+    if (!graphqlResponse?.length) {
       return [];
+
     }
 
-    const mappedResults = graphqlResponse.elementsByElementGroup.results.map(e => {
+    const mappedResults = graphqlResponse.map(e => {
       return {
         elementId: e.id,
         category: 'Doors',
-        properties: e.properties.results.map(p => ({
+        properties: e.properties.map(p => ({
           name: p.name,
           value: this.convertValueToMM(p)
         }))
@@ -227,15 +296,15 @@ export class HubsService {
   async fetchRampsWithProperties(elementGroupId: string, accUserId: string, propertyFilter?: string): Promise<any>{
 
     const graphqlResponse = await this.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
-    if (!graphqlResponse?.elementsByElementGroup?.results) {
+    if (!graphqlResponse?.length) {
       return [];
     }
 
-    const mappedResults = graphqlResponse.elementsByElementGroup.results.map(e => {
+    const mappedResults = graphqlResponse.map(e => {
       return {
         elementId: e.id,
         category: 'Ramps',
-        properties: e.properties.results.map(p => ({
+        properties: e.properties.map(p => ({
           name: p.name,
           value: this.convertValueToMM(p)
         }))
@@ -244,6 +313,58 @@ export class HubsService {
 
     return mappedResults;
   }
+
+  async getDoorsWithWidth(elementGroupId: string, accUserId: string, propertyFilter: string) {
+    const DOC_QUERY = `
+      query ($elementGroupId: ID!, $propertyFilter: String!, $cursor: String, $limit: Int = 500) {
+        elementsByElementGroup(
+          elementGroupId: $elementGroupId,
+          filter: { query: $propertyFilter },
+          pagination: { cursor: $cursor, limit: $limit }
+        ) {
+          pagination { cursor }
+          results {
+            id
+            name
+            properties {
+              results {
+                name
+                value
+                definition { units { name } }
+              }
+            }
+          }
+        }
+      }`;
+  
+    const filter = "property.name.category==Doors and 'property.name.Element Context'==Instance";
+    let cursor: string | null = null;
+    const doorsWithWidth: Array<{id: string; name: string; elementID: any; FamilyName:string }> = [];
+  
+    do {
+      const resp = await this.queryGraphQL(DOC_QUERY, {
+        elementGroupId,
+        propertyFilter: filter,
+        cursor,
+        limit: 500
+      }, accUserId);
+  
+      const block = resp?.elementsByElementGroup;
+      for (const el of block?.results ?? []) {
+        // const widthProp = el.properties?.results?.find((p: any) => p.name === "Width");
+        const familyName = el.properties?.results?.find((p: any) => p.name === "Family Name");
+        const elementID = el.properties?.results?.find((p: any) => p.name === "Revit Element ID");
+        if (elementID) {
+          doorsWithWidth.push({ id: el.id, name: el.name, elementID: elementID.value, FamilyName: familyName.value });
+        }
+      }
+  
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+  
+    return doorsWithWidth;
+  }
+  
 
   private convertValueToMM(prop: any): number | any {
     if (!prop.value || typeof prop.value !== 'number') return prop.value;

@@ -44,7 +44,7 @@ export class HubsController {
     @Body('elementGroupId') elementGroupId: string,
     @Body('propertyFilter') propertyFilter: string,
   ) {
-    return this.hubsService.getElementsFromCategory(elementGroupId, accUserId, propertyFilter);
+    return this.hubsService.getDoorsWithWidth(elementGroupId, accUserId, propertyFilter);
   }
 
   @Get(':hubId/projects/:projectId/top-folders')
