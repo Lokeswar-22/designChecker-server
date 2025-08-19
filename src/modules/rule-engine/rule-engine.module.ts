@@ -27,8 +27,9 @@ import { Redis } from 'ioredis';
     {
       provide: Redis,
       useFactory: () => new Redis({
-        host: process.env.REDIS_HOST || 'localhost',
+        host: process.env.REDIS_HOST || '192.168.40.177',
         port: parseInt(process.env.REDIS_PORT || '6379'),
+        password:'LokiKKM'
       }),
     }
   ]
