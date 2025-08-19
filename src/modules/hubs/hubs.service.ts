@@ -314,56 +314,6 @@ export class HubsService {
     return mappedResults;
   }
 
-  async getDoorsWithWidth(elementGroupId: string, accUserId: string, propertyFilter: string) {
-    const DOC_QUERY = `
-      query ($elementGroupId: ID!, $propertyFilter: String!, $cursor: String, $limit: Int = 500) {
-        elementsByElementGroup(
-          elementGroupId: $elementGroupId,
-          filter: { query: $propertyFilter },
-          pagination: { cursor: $cursor, limit: $limit }
-        ) {
-          pagination { cursor }
-          results {
-            id
-            name
-            properties {
-              results {
-                name
-                value
-                definition { units { name } }
-              }
-            }
-          }
-        }
-      }`;
-  
-    const filter = "property.name.category==Doors and 'property.name.Element Context'==Instance";
-    let cursor: string | null = null;
-    const doorsWithWidth: Array<{id: string; name: string; elementID: any; FamilyName:string }> = [];
-  
-    do {
-      const resp = await this.queryGraphQL(DOC_QUERY, {
-        elementGroupId,
-        propertyFilter: filter,
-        cursor,
-        limit: 500
-      }, accUserId);
-  
-      const block = resp?.elementsByElementGroup;
-      for (const el of block?.results ?? []) {
-        // const widthProp = el.properties?.results?.find((p: any) => p.name === "Width");
-        const familyName = el.properties?.results?.find((p: any) => p.name === "Family Name");
-        const elementID = el.properties?.results?.find((p: any) => p.name === "Revit Element ID");
-        if (elementID) {
-          doorsWithWidth.push({ id: el.id, name: el.name, elementID: elementID.value, FamilyName: familyName.value });
-        }
-      }
-  
-      cursor = block?.pagination?.cursor ?? null;
-    } while (cursor);
-  
-    return doorsWithWidth;
-  }
   
 
   private convertValueToMM(prop: any): number | any {
