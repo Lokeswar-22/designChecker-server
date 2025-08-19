@@ -15,9 +15,9 @@ export class CacheInterceptor implements NestInterceptor {
     private async initializeRedis() {
         try {
             this.redisClient = new Redis({
-                host: process.env.REDIS_HOST || '192.168.40.177',
-                port: parseInt(process.env.REDIS_PORT || '6379'),
-                password:'LokiKKM',
+                host: '127.0.0.1',
+                port: parseInt('6379'),
+                password:'LokiKKM#321',                
                 maxRetriesPerRequest: 3,
                 lazyConnect: true,
                 connectTimeout: 10000,
