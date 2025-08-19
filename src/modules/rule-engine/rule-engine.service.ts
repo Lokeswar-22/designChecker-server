@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 
 // Export the interface for use in controller
 export interface DoorValidationResult {
@@ -29,13 +30,20 @@ export interface DoorValidationResponse {
   failureBreakdown: Record<string, number>; // Door type name → failed instance count
 }
 
+// Interface for cached door data
+export interface CachedDoorData {
+  res1: Array<{id: string; name: string; FamilyName: string; width: any}>;
+  res2: Array<{id: string; name: string; elementID: any; FamilyName: string}>;
+}
+
 @Injectable()
 export class RuleEngineService {
   private endpoint1 = 'https://developer.api.autodesk.com/aec/graphql';
 
   constructor(
     public accAuthService: ACCAuthService,
-    private readonly http: HttpService
+    private readonly http: HttpService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ){}
 
   private async queryGraphQL(query: string, variables: any = {}, accUserId: string) {
@@ -171,15 +179,29 @@ export class RuleEngineService {
     return doorsWithWidth;
   }
 
+  async getCachedDoorData(elementGroupId: string, accUserId: string): Promise<CachedDoorData> {
+
+    const cacheKey = `GET:/rule-engine/getDoorData/${elementGroupId}?accUserId=${accUserId}`;
+
+    const cachedData = await this.cacheManager.get(cacheKey) as CachedDoorData | null;
+    if (cachedData) {
+      return cachedData;
+    }
+    const res1 = await this.getDoorsType(elementGroupId, accUserId);
+    const res2 = await this.getDoorsInstance(elementGroupId, accUserId);
+    const data: CachedDoorData = {res1,res2};
+    await this.cacheManager.set(cacheKey, data, 600);
+    return data;
+  }
+
   async executeRule(elementGroupId: string, accUserId: string): Promise<DoorValidationResponse> {
     try {
       console.log('🔍 Starting door validation process...');
-      
-      // Fetch both datasets concurrently for better performance
-      const [typeData, instanceData] = await Promise.all([
-        this.getDoorsType(elementGroupId, accUserId),
-        this.getDoorsInstance(elementGroupId, accUserId)
-      ]);
+
+      // Fetch door data (types and instances)
+      const doorData = await this.getCachedDoorData(elementGroupId, accUserId);
+      const typeData = doorData.res1;
+      const instanceData = doorData.res2;
 
       console.log(`📊 Data loaded: ${typeData.length} door types, ${instanceData.length} instances`);
   

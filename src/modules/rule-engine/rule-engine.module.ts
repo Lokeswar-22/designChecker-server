@@ -7,9 +7,17 @@ import { IssueService } from 'src/shared/services/issue.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Issue } from 'src/shared/entities/issue.entity';
 import { RequestService } from 'src/shared/services/request.service';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
-  imports: [ACCAuthModule,HttpModule,TypeOrmModule.forFeature([Issue])],
+  imports: [
+    ACCAuthModule,
+    HttpModule,
+    TypeOrmModule.forFeature([Issue]),
+    CacheModule.register({
+      //ttl: 60000,
+    })
+  ],
   controllers: [RuleEngineController],
   providers: [RuleEngineService, IssueService,RequestService]
 })

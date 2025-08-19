@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { DbConnectionModule } from './shared/config/db-connection.module';
 import { ConfigModule } from '@nestjs/config';
 import { ACCAuthModule } from './modules/acc-auth/acc-auth.module';
@@ -9,9 +8,14 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AecDataModelModule } from './modules/aec-data-model/aec-data-model.module';
 import { RuleEngineModule } from './modules/rule-engine/rule-engine.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    CacheModule.register({
+      isGlobal: true,
+      //ttl: 60000,
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
