@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { RuleEngineService, DoorValidationResponse } from './rule-engine.service';
 import { IssueService } from 'src/shared/services/issue.service';
 
@@ -41,13 +41,14 @@ export class RuleEngineController {
     return this.ruleEngineService.executeRuleLegacy(body.elementGroupId, body.accUserId);
   }
 
-  @Post('create-issues-batch')
-  async createIssuesBatch(@Body() requestBody: {
-    projectId: string;
-    accUserId: string;
+  @Post('projects/:projectId/createissues')
+  async createIssuesBatch(
+    @Param('projectId') projectId: string,
+    @Param('accUserId') accUserId: string,
+    @Body() requestBody: {
     issues: any[]
   }) {
-    const { projectId, accUserId, issues } = requestBody;
+    const {issues } = requestBody;
 
     if (!issues || issues.length === 0) {
       return {
