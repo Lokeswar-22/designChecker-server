@@ -1,9 +1,13 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { RuleEngineService, DoorValidationResponse } from './rule-engine.service';
+import { IssueService } from 'src/shared/services/issue.service';
 
 @Controller('rule-engine')
 export class RuleEngineController {
-  constructor(private readonly ruleEngineService: RuleEngineService) {}
+  constructor(
+    private readonly ruleEngineService: RuleEngineService,
+    private readonly issueService: IssueService
+  ) {}
 
   @Post('rule1')
   async rule1(@Body() body: { elementGroupId: string; accUserId: string }): Promise<DoorValidationResponse> {
@@ -36,4 +40,34 @@ export class RuleEngineController {
   async rule1Legacy(@Body() body: { elementGroupId: string; accUserId: string }) {
     return this.ruleEngineService.executeRuleLegacy(body.elementGroupId, body.accUserId);
   }
+
+  @Post('create-issues-batch')
+  async createIssuesBatch(@Body() requestBody: {
+    projectId: string;
+    accUserId: string;
+    issues: any[]
+  }) {
+    const { projectId, accUserId, issues } = requestBody;
+
+    if (!issues || issues.length === 0) {
+      return {
+        error: 'No issues provided',
+        total: 0,
+        successful: 0,
+        failed: 0
+      };
+    }
+
+    const result = await this.issueService.createIssuesBatch(
+      projectId,
+      accUserId,
+      issues
+    );
+
+    return {
+      message: 'Batch processing completed',
+      ...result
+    };
+  }
+
 }
