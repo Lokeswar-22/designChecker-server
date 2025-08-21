@@ -9,9 +9,10 @@ export interface ValidationResult {
   typeId: string;
   typeName: string;
   familyName: string;
-  widthMm: number;
+  widthMm?: number;
   isValid: boolean;
   elementIds: string[];
+  stairsMaxRiserHeight?: number;
 }
 
 export interface ValidationResponse {
@@ -77,6 +78,11 @@ export interface ParkingValidationResponse {
 
 export interface CachedDoorData {
   res1: Array<{id: string; name: string; FamilyName: string; width: any}>;
+  res2: Array<{id: string; name: string; elementID: any; FamilyName: string}>;
+}
+
+export interface CachedStairsData {
+  res1: Array<{id: string; name: string; FamilyName: string; stairsMaxRiserHeight: any}>;
   res2: Array<{id: string; name: string; elementID: any; FamilyName: string}>;
 }
 
@@ -304,8 +310,12 @@ export class RuleEngineService {
 
         return result;
       });
-  
-      const failedResults = validationResults.filter(r => !r.isValid);
+
+      const filteredValidationResults = validationResults.filter(result =>
+        result.isValid || (result.elementIds.length > 0)
+      );
+
+      const failedResults = filteredValidationResults.filter(r => !r.isValid);
       const failedWithElements = failedResults.filter(r => r.elementIds.length > 0);
       const failedWithoutElements = failedResults.filter(r => r.elementIds.length === 0);
       const totalFailedElements = failedResults.reduce((sum, r) => sum + r.elementIds.length, 0);
@@ -320,7 +330,7 @@ export class RuleEngineService {
       });
       
       const summary = {
-        totalTypesChecked: validationResults.length,
+        totalTypesChecked: filteredValidationResults.length,
         failedValidations: failedResults.length,
         failedWithElementIds: failedWithElements.length,
         failedWithoutElementIds: failedWithoutElements.length,
@@ -332,7 +342,7 @@ export class RuleEngineService {
       };
 
       return {
-        validationResults,
+        validationResults: filteredValidationResults,
         summary,
         failureBreakdown
       };
@@ -527,8 +537,7 @@ export class RuleEngineService {
       const M_TO_MM_MULTIPLIER = 1000;
   
       let perfectMatches = 0;
-      let processedCount = 0;
-  
+
       const validationResults: ValidationResult[] = typeData.map((rampType) => {
         const inclineLengthMm = rampType.InclineLength * M_TO_MM_MULTIPLIER;
         const verticalRiseMm = (1 / rampType.Slope) * inclineLengthMm;
@@ -558,8 +567,6 @@ export class RuleEngineService {
         };
 
         if (!isValid) {
-          processedCount++;
-          
           const lookupKey = `${rampType.name}|${rampType.FamilyName}`;
           const matchingInstances = instanceLookupMap.get(lookupKey) || [];
           
@@ -571,8 +578,12 @@ export class RuleEngineService {
 
         return result;
       });
-  
-      const failedResults = validationResults.filter(r => !r.isValid);
+
+      const filteredValidationResults = validationResults.filter(result =>
+        result.isValid || (result.elementIds.length > 0)
+      );
+
+      const failedResults = filteredValidationResults.filter(r => !r.isValid);
       const failedWithElements = failedResults.filter(r => r.elementIds.length > 0);
       const failedWithoutElements = failedResults.filter(r => r.elementIds.length === 0);
       const totalFailedElements = failedResults.reduce((sum, r) => sum + r.elementIds.length, 0);
@@ -599,7 +610,7 @@ export class RuleEngineService {
       };
 
       return {
-        validationResults,
+        validationResults: filteredValidationResults,
         summary,
         failureBreakdown
       };
@@ -855,7 +866,368 @@ const handicappedPercentOfTotal = totalParkingSpaces > 0
     }
   }
 
+  async getRampInstance(elementGroupId: string, accUserId: string) {
+    const DOC_QUERY = `
+      query ($elementGroupId: ID!, $propertyFilter: String!, $cursor: String, $limit: Int = 500) {
+        elementsByElementGroup(
+          elementGroupId: $elementGroupId,
+          filter: { query: $propertyFilter },
+          pagination: { cursor: $cursor, limit: $limit }
+        ) {
+          pagination { cursor }
+          results {
+            id
+            name
+            properties {
+              results {
+                name
+                value
+                definition { units { name } }
+              }
+            }
+          }
+        }
+      }`;
 
+    const filter = "property.name.category==Ramps and 'property.name.Element Context'==Instance";
+    let cursor: string | null = null;
+    const rampWithWidth: Array<{id: string; name: string; elementID: any; width:string }> = [];
+
+    do {
+      const resp = await this.queryGraphQL(DOC_QUERY, {
+        elementGroupId,
+        propertyFilter: filter,
+        cursor,
+        limit: 500
+      }, accUserId);
+
+      const block = resp?.elementsByElementGroup;
+      for (const el of block?.results ?? []) {
+        const width = el.properties?.results?.find((p: any) => p.name === "Width");
+        const elementID = el.properties?.results?.find((p: any) => p.name === "Revit Element ID");
+        if (elementID) {
+          rampWithWidth.push({
+            id: el.id,
+            name: el.name,
+            elementID: elementID.value,
+            width: width?.value
+          });
+        }
+      }
+
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+
+    return rampWithWidth;
+  }
+
+
+  async executeRule4(elementGroupId: string, accUserId: string) {
+    try {
+      const instanceData = await this.getRampInstance(elementGroupId, accUserId);
+      const instanceLookupMap = new Map<string, typeof instanceData>();
+
+      instanceData.forEach(instance => {
+        if (instance.name && instance.id) {
+          const key = `${instance.name}|${instance.id}`;
+          if (!instanceLookupMap.has(key)) {
+            instanceLookupMap.set(key, []);
+          }
+          instanceLookupMap.get(key)!.push(instance);
+        }
+      });
+
+      const MIN_WIDTH_MM = 1200;
+      const M_TO_MM_MULTIPLIER = 1000;
+
+      let perfectMatches = 0;
+
+      const validationResults = instanceData.map((rampType) => {
+        const widthMm = Number(rampType.width) * M_TO_MM_MULTIPLIER;
+        const isValid = widthMm >= MIN_WIDTH_MM;
+
+        const result = {
+          typeId: rampType.id,
+          typeName: rampType.name,
+          // elementId: rampType.elementID,
+          widthMm: Math.round(widthMm * 100) / 100,
+          isValid,
+          elementIds: [rampType.elementID]
+        };
+
+        if (!isValid) {
+          const lookupKey = `${rampType.name}|${rampType.id}`;
+          const matchingInstances = instanceLookupMap.get(lookupKey) || [];
+
+          if (matchingInstances.length > 0) {
+            result.elementIds = matchingInstances.map(instance => instance.elementID);
+            perfectMatches++;
+          }
+        }
+
+        return result;
+      });
+
+      const filteredValidationResults = validationResults.filter(result =>
+        result.isValid || (result.elementIds.length > 0)
+      );
+
+      const failedResults = filteredValidationResults.filter(r => !r.isValid);
+      const failedWithElements = failedResults.filter(r => r.elementIds.length > 0);
+      const failedWithoutElements = failedResults.filter(r => r.elementIds.length === 0);
+      const totalFailedElements = failedResults.reduce((sum, r) => sum + r.elementIds.length, 0);
+
+      const allElementIds = failedResults.flatMap(r => r.elementIds);
+      const uniqueElementIds = new Set(allElementIds);
+      const duplicateCount = allElementIds.length - uniqueElementIds.size;
+
+      const failureBreakdown: Record<string, number> = {};
+      failedWithElements.forEach(result => {
+        failureBreakdown[result.typeName] = result.elementIds.length;
+      });
+
+      const summary = {
+        totalTypesChecked: validationResults.length,
+        failedValidations: failedResults.length,
+        failedWithElementIds: failedWithElements.length,
+        failedWithoutElementIds: failedWithoutElements.length,
+        totalFailedElementInstances: totalFailedElements,
+        uniqueElementIds: uniqueElementIds.size,
+        duplicateElementIds: duplicateCount,
+        perfectMatchesFound: perfectMatches,
+        totalInstancesChecked: instanceData.length
+      };
+
+      return {
+        validationResults: filteredValidationResults,
+        summary,
+        failureBreakdown
+      };
+
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getStairsInstance(elementGroupId: string, accUserId: string) {
+    const DOC_QUERY = `
+      query ($elementGroupId: ID!, $propertyFilter: String!, $cursor: String, $limit: Int = 500) {
+        elementsByElementGroup(
+          elementGroupId: $elementGroupId,
+          filter: { query: $propertyFilter },
+          pagination: { cursor: $cursor, limit: $limit }
+        ) {
+          pagination { cursor }
+          results {
+            id
+            name
+            properties {
+              results {
+                name
+                value
+                definition { units { name } }
+              }
+            }
+          }
+        }
+      }`;
+
+    const filter = "property.name.category==Stairs and 'property.name.Element Context'==Instance";
+    let cursor: string | null = null;
+    const doorsWithWidth: Array<{id: string; name: string; elementID: any; FamilyName:string }> = [];
+
+    do {
+      const resp = await this.queryGraphQL(DOC_QUERY, {
+        elementGroupId,
+        propertyFilter: filter,
+        cursor,
+        limit: 500
+      }, accUserId);
+
+      const block = resp?.elementsByElementGroup;
+      for (const el of block?.results ?? []) {
+        const familyName = el.properties?.results?.find((p: any) => p.name === "Family Name");
+        const elementID = el.properties?.results?.find((p: any) => p.name === "Revit Element ID");
+        if (elementID) {
+          doorsWithWidth.push({
+            id: el.id,
+            name: el.name,
+            elementID: elementID.value,
+            FamilyName: familyName?.value
+          });
+        }
+      }
+
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+
+    return doorsWithWidth;
+  }
+
+  async getStairsType(elementGroupId: string, accUserId: string) {
+    const DOC_QUERY = `
+      query ($elementGroupId: ID!, $propertyFilter: String!, $cursor: String, $limit: Int = 500) {
+        elementsByElementGroup(
+          elementGroupId: $elementGroupId,
+          filter: { query: $propertyFilter },
+          pagination: { cursor: $cursor, limit: $limit }
+        ) {
+          pagination { cursor }
+          results {
+            id
+            name
+            properties {
+              results {
+                name
+                value
+                definition { units { name } }
+              }
+            }
+          }
+        }
+      }`;
+
+    const filter = "property.name.category==Stairs and 'property.name.Element Context'==Type";
+    let cursor: string | null = null;
+    const stairsWithWidth: Array<{id: string; name: string; FamilyName:string; stairsMaxRiserHeight:any }> = [];
+
+    do {
+      const resp = await this.queryGraphQL(DOC_QUERY, {
+        elementGroupId,
+        propertyFilter: filter,
+        cursor,
+        limit: 500
+      }, accUserId);
+
+      const block = resp?.elementsByElementGroup;
+      for (const el of block?.results ?? []) {
+        const stairsMaxRiserHeight = el.properties?.results?.find((p: any) => p.name === "Maximum Riser Height");
+        const familyName = el.properties?.results?.find((p: any) => p.name === "Family Name");
+        if (stairsMaxRiserHeight) {
+          stairsWithWidth.push({
+            id: el.id,
+            name: el.name,
+            FamilyName: familyName?.value,
+            stairsMaxRiserHeight: Math.round(stairsMaxRiserHeight.value * 1000)
+          });
+        }
+      }
+
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+
+    return stairsWithWidth;
+  }
+
+    async getCachedStairsData(elementGroupId: string, accUserId: string): Promise<CachedStairsData> {
+
+    const cacheKey = `Cache Key:GET:/rule-engine/getStairsData/${elementGroupId}?accUserId=${accUserId}`;
+    const cachedData = await this.redis.get(cacheKey) as CachedStairsData | null;
+
+    if (cachedData) {
+        try {
+              const parsedData = JSON.parse(cachedData as unknown as string) as CachedStairsData;
+          return parsedData;
+        } catch (error) {
+          await this.redis.del(cacheKey);
+        }
+      }
+    const res1 = await this.getStairsType(elementGroupId, accUserId);
+    const res2 = await this.getStairsInstance(elementGroupId, accUserId);
+    const data: CachedStairsData = {res1,res2};
+    await this.cacheManager.set(cacheKey, data, 600);
+    return data;
+  }
+
+  async executeRule5(elementGroupId: string, accUserId: string): Promise<ValidationResponse> {
+    try {
+      const stairsData = await this.getCachedStairsData(elementGroupId, accUserId);
+      const typeData = stairsData.res1;
+      const instanceData = stairsData.res2;
+
+      const instanceLookupMap = new Map<string, typeof instanceData>();
+
+      instanceData.forEach(instance => {
+        if (instance.name && instance.FamilyName) {
+          const key = `${instance.name}|${instance.FamilyName}`;
+          if (!instanceLookupMap.has(key)) {
+            instanceLookupMap.set(key, []);
+          }
+          instanceLookupMap.get(key)!.push(instance);
+        }
+      });
+
+      const MAX_STAIR_RISER_HEIGHT_MM = 175;
+      //const M_TO_MM_MULTIPLIER = 1000;
+
+      let perfectMatches = 0;
+
+      const validationResults: ValidationResult[] = typeData.map((stairsType) => {
+        const stairRiserHeightMm = stairsType.stairsMaxRiserHeight ;
+        const isValid = stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
+
+        const result: ValidationResult = {
+          typeId: stairsType.id,
+          typeName: stairsType.name,
+          familyName: stairsType.FamilyName,
+          stairsMaxRiserHeight: Math.round(stairRiserHeightMm * 100) / 100,
+          isValid,
+          elementIds: []
+        };
+
+        if (!isValid) {
+          const lookupKey = `${stairsType.name}|${stairsType.FamilyName}`;
+          const matchingInstances = instanceLookupMap.get(lookupKey) || [];
+
+          if (matchingInstances.length > 0) {
+            result.elementIds = matchingInstances.map(instance => instance.elementID);
+            perfectMatches++;
+          }
+        }
+
+        return result;
+      });
+
+      const filteredValidationResults = validationResults.filter(result =>
+        result.isValid || (result.elementIds.length > 0)
+      );
+
+      const failedResults = filteredValidationResults.filter(r => !r.isValid);
+      const failedWithElements = failedResults.filter(r => r.elementIds.length > 0);
+      const failedWithoutElements = failedResults.filter(r => r.elementIds.length === 0);
+      const totalFailedElements = failedResults.reduce((sum, r) => sum + r.elementIds.length, 0);
+
+      const allElementIds = failedResults.flatMap(r => r.elementIds);
+      const uniqueElementIds = new Set(allElementIds);
+      const duplicateCount = allElementIds.length - uniqueElementIds.size;
+
+      const failureBreakdown: Record<string, number> = {};
+      failedWithElements.forEach(result => {
+        failureBreakdown[result.typeName] = result.elementIds.length;
+      });
+
+      const summary = {
+        totalTypesChecked: validationResults.length,
+        failedValidations: failedResults.length,
+        failedWithElementIds: failedWithElements.length,
+        failedWithoutElementIds: failedWithoutElements.length,
+        totalFailedElementInstances: totalFailedElements,
+        uniqueElementIds: uniqueElementIds.size,
+        duplicateElementIds: duplicateCount,
+        perfectMatchesFound: perfectMatches,
+        totalInstancesChecked: instanceData.length
+      };
+
+      return {
+        validationResults: filteredValidationResults,
+        summary,
+        failureBreakdown
+      };
+
+    } catch (error) {
+      throw error;
+    }
+  }
 
 }
 

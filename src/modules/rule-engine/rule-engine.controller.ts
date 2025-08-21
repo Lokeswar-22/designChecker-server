@@ -25,6 +25,16 @@ export class RuleEngineController {
     return this.ruleEngineService.executeRule3(body.elementGroupId, body.accUserId, body.levelName);
   }
 
+  @Post('rule4')
+  async rule4(@Body() body: { elementGroupId: string; accUserId: string }): Promise<any> {
+    return this.ruleEngineService.executeRule4(body.elementGroupId, body.accUserId);
+  }
+
+  @Post('rule5')
+  async rule5(@Body() body: { elementGroupId: string; accUserId: string }): Promise<ValidationResponse> {
+    return this.ruleEngineService.executeRule5(body.elementGroupId, body.accUserId);
+  }
+
   @Post('rule1/failures')
   async getFailedValidations(@Body() body: { elementGroupId: string; accUserId: string }) {
     return this.ruleEngineService.getFailedDoorValidations(body.elementGroupId, body.accUserId);
@@ -82,6 +92,25 @@ export class RuleEngineController {
 
       return res;
 
+  }
+
+  @Get('getRampData2/:elementGroupId')
+  async getRampData2(
+    @Query('accUserId') accUserId: string,
+    @Param('elementGroupId') elementGroupId: string ) {
+   const res = await this.ruleEngineService.getRampInstance(elementGroupId, accUserId);
+   return res;
+  }
+
+  @Get('getStairsData/:elementGroupId')
+  @UseInterceptors(CacheInterceptor)
+  async getStairsData(
+    @Query('accUserId') accUserId: string,
+    @Param('elementGroupId') elementGroupId: string ) {
+    const res1 = await this.ruleEngineService.getStairsType(elementGroupId, accUserId);
+    const res2 = await this.ruleEngineService.getStairsInstance(elementGroupId, accUserId);
+
+    if(res1 && res2) return {res1,res2};
   }
 
   @Post('projects/:projectId/createissues')
