@@ -35,14 +35,6 @@ export class IssueService {
         rootCauseId: body?.rootCauseId,
         published: body?.published,
         linkedDocuments: body?.linkedDocuments,
-        // locationId: body?.locationId,
-        // locationDetails: body?.locationDetails,
-        // issueTemplateId: body?.issueTemplateId,
-        // permittedActions: body?.permittedActions,
-        // watchers: body?.watchers,
-        // customAttributes: body?.customAttributes,
-        // gpsCoordinates: body?.gpsCoordinates,
-        // snapshotHasMarkups: body?.snapshotHasMarkups,
     };
 
     const response = await axios.post(API_URL, payload, {
@@ -67,7 +59,6 @@ export class IssueService {
 
   }
 
-  // Batch processing method for multiple issues
   async createIssuesBatch(projectId: string, accUserId: string, issuesPayload: any[]): Promise<any> {
     const batchSize = 10;
     const delayBetweenBatches = 1500;
@@ -82,14 +73,12 @@ export class IssueService {
 
     this.logger.log(`Starting batch processing for ${issuesPayload.length} issues`);
 
-    // Split issues into batches
     const batches = this.chunkArray(issuesPayload, batchSize);
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       this.logger.log(`Processing batch ${i + 1}/${batches.length} (${batch.length} issues)`);
 
-      // Process each issue in the current batch
       for (const issuePayload of batch) {
         let retryCount = 0;
         let success = false;
@@ -119,7 +108,6 @@ export class IssueService {
         }
       }
 
-      // Wait between batches (except for the last batch)
       if (i < batches.length - 1) {
         this.logger.debug(`Waiting ${delayBetweenBatches}ms before next batch`);
         await this.delay(delayBetweenBatches);
@@ -130,7 +118,6 @@ export class IssueService {
     return results;
   }
 
-  // Create a single issue (extracted from existing createIssue method)
   private async createSingleIssue(projectId: string, accUserId: string, issuePayload: any): Promise<void> {
     try {
       const accessToken = await this.accAuthService.getValidAccessToken(accUserId);
@@ -151,7 +138,6 @@ export class IssueService {
         linkedDocuments: issuePayload?.linkedDocuments,
       };
 
-      // Log the payload for debugging
       this.logger.debug('Creating issue with payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(API_URL, payload, {
@@ -187,7 +173,6 @@ export class IssueService {
     }
   }
 
-  // Utility methods
   private chunkArray(array: any[], size: number): any[][] {
     const chunks: any[][] = [];
     for (let i = 0; i < array.length; i += size) {
@@ -207,7 +192,6 @@ export class IssueService {
   }
 
   private calculateBackoffDelay(retryCount: number): number {
-    // Exponential backoff: 2s, 4s, 8s
     return Math.min(2000 * Math.pow(2, retryCount - 1), 10000);
   }
 

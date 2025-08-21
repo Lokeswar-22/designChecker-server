@@ -16,7 +16,6 @@ import { Redis } from 'ioredis';
     HttpModule,
     TypeOrmModule.forFeature([Issue]),
     CacheModule.register({
-      //ttl: 60000,
     })
   ],
   controllers: [RuleEngineController],
@@ -27,9 +26,9 @@ import { Redis } from 'ioredis';
     {
       provide: Redis,
       useFactory: () => new Redis({
-        host: '127.0.0.1',
+        host: '192.168.40.177',
         port: parseInt('6379'),
-        password:'LokiKKM#321'      
+        password:'LokiKKM'      
       }),
     }
   ]

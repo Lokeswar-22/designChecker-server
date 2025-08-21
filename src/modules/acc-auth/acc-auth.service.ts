@@ -126,7 +126,6 @@ export class ACCAuthService {
     }
 
     async accSync(accUserId: string, userID: number): Promise<any> {
-        // const userID = this.requestService.getUser().userID;
         const user = await this.userRepository.findOne({ where: { userID } });
         if (!user) throw new NotFoundException('User not found');
         const accUser = await this.accUserRepository.findOne({ where: { accUserId } });
@@ -161,7 +160,6 @@ export class ACCAuthService {
                 await this.getValidAccessToken(user.accUserId);
                 isTokenValid = true;
             } catch (error) {
-                console.error('Token validation failed for accUserId:', user.accUserId, error);
                 isTokenValid = false;
             }
         }
@@ -243,7 +241,6 @@ export class ACCAuthService {
                 expiresAt: newExpiresAt
             };
         } catch (error) {
-            console.error('Failed to refresh token for accUserId:', accUserId, error);
             throw new UnauthorizedException('Failed to refresh access token. User needs to re-authenticate.');
         }
     }
@@ -253,7 +250,6 @@ export class ACCAuthService {
             const tokenData = await this.refreshUserTokens(accUserId);
             return tokenData.accessToken;
         } catch (error) {
-            console.error('Error getting valid access token for accUserId:', accUserId, error);
             throw error;
         }
     }
@@ -271,24 +267,7 @@ export class ACCAuthService {
                 expires_in: credentials.expires_in
             };
         } catch (error) {
-            console.error('Failed to get two-legged token for viewer:', error);
             throw new UnauthorizedException('Failed to get viewer token');
         }
     }
-
-    // async isTokenValid(accUserId: string): Promise<boolean> {
-    //     try {
-    //         const apsToken = await this.apsTokenRepository.findOne({ where: { accUserId } });
-    //         if (!apsToken) return false;
-
-    //         const now = Date.now();
-    //         const tokenExpiryTime = apsToken.expiresAt.getTime();
-
-    //         // Token is valid if it expires in more than 5 minutes
-    //         return tokenExpiryTime > now + 5 * 60 * 1000;
-    //     } catch (error) {
-    //         console.error('Error checking token validity for accUserId:', accUserId, error);
-    //         return false;
-    //     }
-    // }
 }

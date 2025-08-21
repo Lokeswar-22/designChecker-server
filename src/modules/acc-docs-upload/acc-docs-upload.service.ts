@@ -47,8 +47,6 @@ export class AccDocsUploadService {
 
     await this.documentRepository.save(document);
     
-    console.log(`File: ${name}, Size: ${size}, Mime: ${file.mimetype}`);
-
     this.cache.set(accUserId, { name, size });
 
     const resp = await axios.post(
@@ -64,17 +62,13 @@ export class AccDocsUploadService {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const objectId: string = resp.data.data.id;
-    // const bucketKey = objectId.split('/:')[1].split('/')[0];
-    // const objectKey = objectId.split('/').pop();
     if (!objectId) {
-      console.error('Failed storage create, response:', resp.data);
       throw new Error('Storage creation failed');
     }
 
     const urnPattern = /^urn:adsk\.objects:os\.object:([^\/]+)\/(.+)$/;
     const match = objectId.match(urnPattern);
     if (!match) {
-      console.error('Invalid URN', objectId);
       throw new Error('Invalid object urn format');
     }
     const [, bucketKey, objectKey] = match;
@@ -101,17 +95,16 @@ export class AccDocsUploadService {
     const bt = new BinaryTransferClient(accessToken);
     try {
       const uploadPromises = entry.urls.map(async (url, idx) => {
-        const chunkSize = entry.chunkSize || 5 * 1024 * 1024; // Default to 5MB if not set
+        const chunkSize = entry.chunkSize || 5 * 1024 * 1024;
         const start = idx * chunkSize;
         const end = Math.min((idx + 1) * chunkSize, file.buffer.length);
         const chunk = file.buffer.slice(start, end);
         if (entry.urls && idx < entry.urls.length - 1 && chunk.length < 5 * 1024 * 1024) {
-          console.warn(`Warning: Chunk ${idx + 1} size (${chunk.length}) is below S3 minimum (${5 * 1024 * 1024})`);
         }
         const response = await axios.put(url, chunk, {
           headers: { 'Content-Type': 'application/octet-stream' },
           raxConfig: { instance: axios },
-          timeout: 30000 // 30 second timeout
+          timeout: 30000
         });
         return response;
       });

@@ -25,15 +25,14 @@ const entities = [
       username: process.env.DATABASE_USERNAME,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      // logging: true,
       entities: entities,
       synchronize: true,
       logging: false,
       requestTimeout: 60000,
       pool: {
-        max: 1000, // Max number of connections
-        min: 2, // Min number of connections
-        idleTimeoutMillis: 30000, // How long a connection can sit idle before being released (30 seconds)
+        max: 1000,
+        min: 2,
+        idleTimeoutMillis: 30000,
       },
       extra: {
         trustServerCertificate: true,

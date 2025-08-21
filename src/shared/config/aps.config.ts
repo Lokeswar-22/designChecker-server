@@ -10,7 +10,6 @@ const {
 } = process.env;
 
 if (!APS_CLIENT_ID || !APS_CLIENT_SECRET || !APS_CALLBACK_URL ) {
-    console.error('Missing required APS environment variables');
     process.exit(1);
 }
 
@@ -28,10 +27,6 @@ export const apsConfig = {
         Scopes.BucketRead,
         Scopes.BucketUpdate,
         Scopes.BucketDelete,
-        // Scopes.CodeAll,
-        // Scopes.AccountRead,
-        // Scopes.AccountWrite,
-        // Scopes.OpenId,
     ],
     PUBLIC_TOKEN_SCOPES: [
         Scopes.ViewablesRead,
@@ -42,11 +37,6 @@ export const apsConfig = {
         Scopes.BucketRead,
         Scopes.BucketUpdate,
         Scopes.BucketDelete,
-        // Scopes.DataReadUrnOfResource,
-        // Scopes.CodeAll,
-        // Scopes.AccountRead,
-        // Scopes.AccountWrite,
-        // Scopes.OpenId,
     ],
     PORT: parseInt(PORT as string, 10),
 };

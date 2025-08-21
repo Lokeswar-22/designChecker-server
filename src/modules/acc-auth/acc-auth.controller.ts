@@ -4,7 +4,6 @@ import { ACCAuthService } from './acc-auth.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 
 @Controller('api/acc-auth')
-// @UseGuards(AuthGuard)
 export class ACCAuthController {
     constructor(private readonly accAuthService: ACCAuthService) {}
 
@@ -30,7 +29,6 @@ export class ACCAuthController {
     }
 
     @Post('sync')
-    // @UseGuards(AuthGuard)
     async accSync(@Query('accUserId') accUserId: string, @Query('userID') userID: number) {
         const user = await this.accAuthService.accSync(accUserId, userID);
         return user;
@@ -92,18 +90,7 @@ export class ACCAuthController {
     @Get('profile/:accUserId')
     async getProfile(@Param('accUserId') accUserId: string) {
         const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
-        // const profile = await this.accAuthService.getUserProfile(tokenData.accessToken);
-        //return { profile };
     }
-
-    // @Get('validate/:accUserId')
-    // async validateToken(@Param('accUserId') accUserId: string) {
-    //     const isValid = await this.accAuthService.isTokenValid(accUserId);
-    //     return {
-    //         isValid,
-    //         accUserId,
-    //     };
-    // }
 
     @Get('status')
     async getAuthStatus() {

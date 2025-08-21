@@ -23,33 +23,6 @@ import {
     @UpdateDateColumn({ type: 'datetimeoffset', nullable: true })
     modifiedAt: Date;
 
-    // @ManyToOne(() => User, (user: User) => user.userID)
-    // @JoinColumn({ name: 'deletedAt' })
-    // deletedBy: User;
-
     @Column({ type: 'datetimeoffset', nullable: true })
     deletedAt: Date;
-
-    // getCreatedByName() {
-    //   return `${this?.createdBy?.firstName || ''} ${this?.createdBy?.lastName || ''
-    //     }`.trim();
-    // }
-
-    // getCreatedByObj() {
-    //   return {
-    //     firstName: this?.createdBy?.firstName || '',
-    //     lastName: this?.createdBy?.lastName || '',
-    //   };
-    // }
-    // getUpdatedByName() {
-    //   return `${this?.modifiedBy?.firstName || ''} ${this?.modifiedBy?.lastName || ''
-    //     }`.trim();
-    // }
-
-    // getUpdatedByObj() {
-    //   return {
-    //     firstName: this?.modifiedBy?.firstName || '',
-    //     lastName: this?.modifiedBy?.lastName || '',
-    //   };
-    // }
   }

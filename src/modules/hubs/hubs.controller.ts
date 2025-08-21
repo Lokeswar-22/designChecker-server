@@ -3,7 +3,6 @@ import { HubsService } from './hubs.service';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { IssueService } from 'src/shared/services/issue.service';
 @Controller('hubs')
-// @UseGuards(AuthGuard)
 export class HubsController {
   constructor(
     private readonly hubsService: HubsService,

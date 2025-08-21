@@ -22,7 +22,6 @@ export class HubsService {
     const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
     if (!accessToken) throw new UnauthorizedException('Login required');
     const resp = await this.dataManagementClient.getHubs({ accessToken: accessToken });
-    console.log(resp.data)
     return resp.data;
   }
 
@@ -30,7 +29,6 @@ export class HubsService {
     const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
     if (!accessToken) throw new UnauthorizedException('Login required');
     const resp = await this.dataManagementClient.getHubProjects(hubId, { accessToken: accessToken });
-    console.log(resp.data)
     return resp.data;
   }
 
@@ -42,7 +40,7 @@ export class HubsService {
     if (!hubs?.data?.length) throw new NotFoundException('No hubs found for user');
   
     for (const hub of hubs.data) {
-      if (!hub.id) continue;  // Skip hubs with no id
+      if (!hub.id) continue;
     
       const projects = await this.dataManagementClient.getHubProjects(hub.id, { accessToken });
       if (!projects?.data?.length) continue;
@@ -79,7 +77,6 @@ export class HubsService {
 
       return response.data;
     } catch (error) {
-      console.error('Failed to get top folders:', error);
       throw error;
     }
   }
@@ -104,11 +101,10 @@ export class HubsService {
             } },
         ),
       );
-      if (response.data.errors) console.error('GraphQL errors:', response.data.errors);
+      if (response.data.errors) throw new Error('GraphQL errors: ' + JSON.stringify(response.data.errors));
       const result = response.data.data;
       return result;
     } catch (error) {
-      console.error('GraphQL query failed:', error);
       throw error;
     }
   }
@@ -174,7 +170,6 @@ export class HubsService {
     accUserId: string,
     propertyFilter?: string
   ) {
-    // --- 1) GraphQL documents ---
     const ELEMENTS_PAGE = `
       query ($elementGroupId: ID!, $filter: ElementFilterInput, $cursor: String, $limit: Int = 500) {
         elementsByElementGroup(
@@ -187,8 +182,6 @@ export class HubsService {
         }
       }`;
   
-    // elementAtTip lets us fetch a single element and page its properties
-    // (Properties itself is a paginated object in the AEC DM API).
     const ELEMENT_PROPERTIES_PAGE = `
       query ($elementId: ID!, $cursor: String, $limit: Int = 500) {
         elementAtTip(elementId: $elementId) {
@@ -205,7 +198,6 @@ export class HubsService {
         }
       }`;
   
-    // --- 2) Fetch ALL elements (cursor loop) ---
     const allElementIds: string[] = [];
     const allElementsBasic: Record<string, { id: string; name: string }> = {};
     let cursor: string | null = null;
@@ -225,9 +217,6 @@ export class HubsService {
       cursor = block?.pagination?.cursor ?? null;
     } while (cursor);
   
-    // --- 3) For each element, fetch ALL properties (cursor loop per element) ---
-    // Throttle/batch to be nice to rate limits; adjust BATCH_SIZE if needed.
-    // (AEC DM enforces point-based rate limits—keep field selection tight.) :contentReference[oaicite:1]{index=1}
     const BATCH_SIZE = 10;
   
     const resultsFull: Array<{

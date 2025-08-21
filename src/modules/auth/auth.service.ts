@@ -21,8 +21,6 @@ export class AuthService {
   constructor(
     private readonly jwtService: JWTService,
     private readonly userService: UserService,
-    // private readonly genericCommonService: GenericCommonService,
-
   ) { }
 
   async login(loginDto: LoginDto): Promise<AccessTokenResponseInterface> {
@@ -71,30 +69,6 @@ export class AuthService {
       throw error;
     }
   }
-
-//   async refreshToken(token: string): Promise<any> {
-//     if (!token || !token.trim())
-//       // throw new BadRequestException(TEXT.VALIDATION_ERROR_MESSAGE.AUTH.REFRESH_TOKEN.REFRESH_TOKEN_NOT_PRESENT_IN_HEADER);
-//       console.log('token => ', token);
-
-//     try {
-//       const { userID, permissions, roles } =
-//         this.jwtService.verifyRefreshTokenAndGetPayload(token);
-//       console.log('Data => ', userID, permissions);
-//       const user: User = await this.userService.findActiveUserById(userID);
-//       if (!user)
-//         throw new BadRequestException(
-//           TEXT.VALIDATION_ERROR_MESSAGE.AUTH.REFRESH_TOKEN.INVALID_REFRESH_TOKEN,
-//         );
-
-//       token = token.split(' ')[1];
-//       return this.sendTokenResponse(user, token);
-//     } catch (error) {
-//       throw error instanceof HttpException
-//         ? error
-//         : new BadRequestException(error.message);
-//     }
-//   }
 
   async sendTokenResponse(
     user: User,

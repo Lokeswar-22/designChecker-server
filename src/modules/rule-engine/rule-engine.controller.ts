@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseInterceptors } from '@nestjs/common';
-import { RuleEngineService, DoorValidationResponse } from './rule-engine.service';
+import { RuleEngineService, ValidationResponse } from './rule-engine.service';
 import { IssueService } from 'src/shared/services/issue.service';
 import { CacheInterceptor } from 'src/shared/interceptor/cache.interceptor';
 
@@ -11,11 +11,20 @@ export class RuleEngineController {
   ) {}
 
   @Post('rule1')
-  async rule1(@Body() body: { elementGroupId: string; accUserId: string }): Promise<DoorValidationResponse> {
+  async rule1(@Body() body: { elementGroupId: string; accUserId: string }): Promise<ValidationResponse> {
     return this.ruleEngineService.executeRule(body.elementGroupId, body.accUserId);
   }
 
-  // Additional endpoints for utility methods
+  @Post('rule2')
+  async rule2(@Body() body: { elementGroupId: string; accUserId: string }): Promise<ValidationResponse> {
+    return this.ruleEngineService.executeRule2(body.elementGroupId, body.accUserId);
+  }
+
+  @Post('rule3')
+  async rule3(@Body() body: { elementGroupId: string; accUserId: string, levelName: string }): Promise<ValidationResponse> {
+    return this.ruleEngineService.executeRule3(body.elementGroupId, body.accUserId, body.levelName);
+  }
+
   @Post('rule1/failures')
   async getFailedValidations(@Body() body: { elementGroupId: string; accUserId: string }) {
     return this.ruleEngineService.getFailedDoorValidations(body.elementGroupId, body.accUserId);
@@ -36,7 +45,6 @@ export class RuleEngineController {
     return this.ruleEngineService.getFailureBreakdown(body.elementGroupId, body.accUserId);
   }
 
-  // Backward compatibility endpoint
   @Post('rule1/legacy')
   async rule1Legacy(@Body() body: { elementGroupId: string; accUserId: string }) {
     return this.ruleEngineService.executeRuleLegacy(body.elementGroupId, body.accUserId);
@@ -51,6 +59,29 @@ export class RuleEngineController {
    const res2 = await this.ruleEngineService.getDoorsInstance(elementGroupId, accUserId);
 
     if(res1 && res2) return {res1,res2};
+  }
+
+  @Get('getRampData/:elementGroupId')
+  @UseInterceptors(CacheInterceptor)
+  async getRampData(
+    @Query('accUserId') accUserId: string,
+    @Param('elementGroupId') elementGroupId: string ) {
+   const res1 = await this.ruleEngineService.getRampsType(elementGroupId, accUserId);
+   const res2 = await this.ruleEngineService.getRampsInstance(elementGroupId, accUserId);
+
+    if(res1 && res2) return {res1,res2};
+  }
+
+  @Get('getParkingData/:elementGroupId/:Levels')
+  @UseInterceptors(CacheInterceptor)
+  async getParkingData(
+    @Query('accUserId') accUserId: string,
+    @Param('elementGroupId') elementGroupId: string,
+    @Param('Levels') Levels: string ) {
+      const res = await this.ruleEngineService.getParkingInstance(elementGroupId, accUserId, Levels);
+
+      return res;
+
   }
 
   @Post('projects/:projectId/createissues')

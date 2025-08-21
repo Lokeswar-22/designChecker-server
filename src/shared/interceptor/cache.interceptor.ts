@@ -15,42 +15,36 @@ export class CacheInterceptor implements NestInterceptor {
     private async initializeRedis() {
         try {
             this.redisClient = new Redis({
-                host: '127.0.0.1',
+                host: '192.168.40.177',
                 port: parseInt('6379'),
-                password:'LokiKKM#321',                
+                password:'LokiKKM',                
                 maxRetriesPerRequest: 3,
                 lazyConnect: true,
                 connectTimeout: 10000,
             });
 
             this.redisClient.on('connect', () => {
-                console.log('Redis connected successfully');
                 this.isRedisConnected = true;
             });
 
             this.redisClient.on('ready', () => {
-                console.log('Redis is ready');
                 this.isRedisConnected = true;
             });
 
             this.redisClient.on('error', (error) => {
-                console.error('Redis connection error:', error);
                 this.isRedisConnected = false;
             });
 
             this.redisClient.on('close', () => {
-                console.log('Redis connection closed');
                 this.isRedisConnected = false;
             });
 
             this.redisClient.on('reconnecting', () => {
-                console.log('Redis reconnecting...');
                 this.isRedisConnected = false;
             });
 
             await this.redisClient.connect();
         } catch (error) {
-            console.error('Failed to initialize Redis:', error);
             this.isRedisConnected = false;
         }
     }
@@ -68,7 +62,6 @@ export class CacheInterceptor implements NestInterceptor {
         }
 
         if (!this.isRedisConnected || !this.redisClient) {
-            console.log('Redis not connected, skipping cache for:', request.url);
             return next.handle();
         }
 
@@ -77,23 +70,18 @@ export class CacheInterceptor implements NestInterceptor {
         try {
             const cachedResponse = await this.redisClient.get(cacheKey);
             if (cachedResponse) {
-                console.log('Cache hit for:', request.url);
                 return of(JSON.parse(cachedResponse));
             }
         } catch (error) {
-            console.error('Redis GET Error:', error);
 
         }
 
-        console.log('Cache miss for:', request.url);
         return next.handle().pipe(
             tap(async (response) => {
                 if (this.isRedisConnected && this.redisClient) {
                     try {
                         await this.redisClient.set(cacheKey, JSON.stringify(response), 'EX', 600);
-                        console.log('Cached response for:', request.url);
                     } catch (error) {
-                        console.error('Redis SET Error:', error);
                     }
                 }
             }),
