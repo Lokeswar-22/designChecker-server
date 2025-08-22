@@ -369,7 +369,7 @@ export class RuleEngineService {
           // elementId: rampType.elementID,
           widthMm: Math.round(widthMm * 100) / 100,
           isValid,
-          elementIds: [rampType.elementID],
+          elementIds: [rampType.elementId],
         };
 
         if (!isValid) {
@@ -378,7 +378,7 @@ export class RuleEngineService {
 
           if (matchingInstances.length > 0) {
             result.elementIds = matchingInstances.map(
-              (instance) => instance.elementID,
+              (instance) => instance.elementId,
             );
             perfectMatches++;
           }
@@ -459,8 +459,8 @@ export class RuleEngineService {
       const instanceLookupMap = new Map<string, typeof instanceData>();
 
       instanceData.forEach((instance) => {
-        if (instance.name && instance.FamilyName) {
-          const key = `${instance.name}|${instance.FamilyName}`;
+        if (instance.name && instance.familyName) {
+          const key = `${instance.name}|${instance.familyName}`;
           if (!instanceLookupMap.has(key)) {
             instanceLookupMap.set(key, []);
           }
@@ -469,30 +469,32 @@ export class RuleEngineService {
       });
 
       const MAX_STAIR_RISER_HEIGHT_MM = 175;
-      //const M_TO_MM_MULTIPLIER = 1000;
+      // const M_TO_MM_MULTIPLIER = 1000;
 
       let perfectMatches = 0;
 
       const validationResults = typeData.map((stairsType) => {
-        const stairRiserHeightMm = stairsType.stairsMaxRiserHeight;
+        const stairRiserHeightMm = Math.round(
+          stairsType.stairsMaxRiserHeight * 1000,
+        );
         const isValid = stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
 
         const result = {
           typeId: stairsType.id,
           typeName: stairsType.name,
-          familyName: stairsType.FamilyName,
+          familyName: stairsType.familyName,
           stairsMaxRiserHeight: Math.round(stairRiserHeightMm * 100) / 100,
           isValid,
           elementIds: [],
         };
 
         if (!isValid) {
-          const lookupKey = `${stairsType.name}|${stairsType.FamilyName}`;
+          const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
           const matchingInstances = instanceLookupMap.get(lookupKey) || [];
 
           if (matchingInstances.length > 0) {
             result.elementIds = matchingInstances.map(
-              (instance) => instance.elementID,
+              (instance) => instance.elementId,
             );
             perfectMatches++;
           }
@@ -564,7 +566,146 @@ export class RuleEngineService {
         elementGroupId,
         accUserId,
       );
-      return instanceData;
+
+      const calculateRectangleDimensions = (
+        area: number,
+        perimeter: number,
+      ): { length: number; width: number } | null => {
+        try {
+          const halfPerimeter = perimeter / 2;
+          const discriminant = Math.pow(halfPerimeter, 2) - 4 * area;
+
+          if (discriminant < 0) {
+            return null; // Invalid rectangle
+          }
+
+          const sqrtDiscriminant = Math.sqrt(discriminant);
+          const dim1 = (halfPerimeter + sqrtDiscriminant) / 2;
+          const dim2 = (halfPerimeter - sqrtDiscriminant) / 2;
+
+          // Return length (larger) and width (smaller)
+          return {
+            length: Math.max(dim1, dim2),
+            width: Math.min(dim1, dim2),
+          };
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const MIN_WIDTH_MM = 1200;
+      const MIN_LENGTH_MM = 1500;
+      const M_TO_MM_MULTIPLIER = 1000;
+
+      let perfectMatches = 0;
+      let processedCount = 0;
+
+      const validationResults: any[] = instanceData.map((roomInstance) => {
+        const area = parseFloat(roomInstance.area);
+        const perimeter = parseFloat(roomInstance.perimeter);
+
+        // Calculate rectangle dimensions
+        const dimensions = calculateRectangleDimensions(area, perimeter);
+
+        let isValid = true;
+        let failureReasons: string[] = [];
+        let lengthMm = 0;
+        let widthMm = 0;
+
+        if (!dimensions) {
+          isValid = false;
+          failureReasons.push(
+            'Invalid rectangle dimensions - cannot calculate from area and perimeter',
+          );
+        } else {
+          lengthMm =
+            Math.round(dimensions.length * M_TO_MM_MULTIPLIER * 100) / 100;
+          widthMm =
+            Math.round(dimensions.width * M_TO_MM_MULTIPLIER * 100) / 100;
+
+          // Validate width
+          if (widthMm < MIN_WIDTH_MM) {
+            isValid = false;
+            failureReasons.push(
+              `Width ${widthMm}mm is less than minimum required ${MIN_WIDTH_MM}mm`,
+            );
+          }
+
+          // Validate length
+          if (lengthMm < MIN_LENGTH_MM) {
+            isValid = false;
+            failureReasons.push(
+              `Length ${lengthMm}mm is less than minimum required ${MIN_LENGTH_MM}mm`,
+            );
+          }
+        }
+
+        const result = {
+          instanceId: roomInstance.id,
+          instanceName: roomInstance.name,
+          // FIXED: Use correct property name (camelCase)
+          familyName: roomInstance.familyName,
+          area: area,
+          perimeter: perimeter,
+          lengthMm: lengthMm,
+          widthMm: widthMm,
+          isValid: isValid,
+          failureReasons: failureReasons,
+          elementIds: [] as String[],
+        };
+
+        if (!isValid) {
+          processedCount++;
+          // FIXED: Use correct property name (camelCase)
+          result.elementIds = [roomInstance.elementId];
+          perfectMatches++;
+        }
+
+        return result;
+      });
+
+      const filteredValidationResults = validationResults.filter(
+        (result) => result.isValid || result.elementIds.length > 0,
+      );
+
+      const failedResults = filteredValidationResults.filter((r) => !r.isValid);
+      const failedWithElements = failedResults.filter(
+        (r) => r.elementIds.length > 0,
+      );
+      const failedWithoutElements = failedResults.filter(
+        (r) => r.elementIds.length === 0,
+      );
+      const totalFailedElements = failedResults.reduce(
+        (sum, r) => sum + r.elementIds.length,
+        0,
+      );
+
+      const allElementIds = failedResults.flatMap((r) => r.elementIds);
+      const uniqueElementIds = new Set(allElementIds);
+      const duplicateCount = allElementIds.length - uniqueElementIds.size;
+
+      const failureBreakdown: Record<string, number> = {};
+      failedWithElements.forEach((result) => {
+        failureBreakdown[result.instanceName] = result.elementIds.length;
+      });
+
+      const summary = {
+        totalInstancesChecked: filteredValidationResults.length,
+        failedValidations: failedResults.length,
+        failedWithElementIds: failedWithElements.length,
+        failedWithoutElementIds: failedWithoutElements.length,
+        totalFailedElementInstances: totalFailedElements,
+        uniqueElementIds: uniqueElementIds.size,
+        duplicateElementIds: duplicateCount,
+        perfectMatchesFound: perfectMatches,
+        totalInstancesProcessed: instanceData.length,
+      };
+
+      return {
+        validationResults: filteredValidationResults,
+        summary,
+        failureBreakdown,
+      };
     } catch (error) {
       throw error;
     }
