@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 
 @Entity('rule3')
@@ -18,7 +18,7 @@ export class Rule3 extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   elementId: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   width: string;
 
   @Column({ type: 'varchar', length: 255 })
@@ -26,5 +26,4 @@ export class Rule3 extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255 })
   elementContext: string;
-
 }

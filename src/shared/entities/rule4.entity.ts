@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 
 @Entity('rule4')
@@ -27,6 +27,6 @@ export class Rule4 extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   familyName: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stairsMaxRiserHeight: string;
 }
