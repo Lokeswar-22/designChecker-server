@@ -10,6 +10,7 @@ import { RuleEngineService } from "src/modules/rule-engine/rule-engine.service";
 import { HubsService } from "src/modules/hubs/hubs.service";
 import { Redis } from "ioredis";
 import { DmDiscoveryService } from "src/modules/dm-discovery/dm-discovery.service";
+import { AccWebhookService } from "src/modules/acc-webhook/acc-webhook.service";
 
 const MODULES = [
     DbConnectionModule,
@@ -28,7 +29,8 @@ const SERVICES = [
     RuleEngineService,
     HubsService,
     Redis,
-    DmDiscoveryService
+    DmDiscoveryService,
+    AccWebhookService
 ]
 
 @Module({

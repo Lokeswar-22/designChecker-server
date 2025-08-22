@@ -9,6 +9,7 @@ import {
     RuleEngineModule,
     DmDiscoveryModule
 } from "./index";
+import { AccWebhookModule } from './acc-webhook/acc-webhook.module';
 
 
 const MODULES = [
