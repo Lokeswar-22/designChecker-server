@@ -10,6 +10,7 @@ import {
     DmDiscoveryModule
 } from "./index";
 import { AccWebhookModule } from './acc-webhook/acc-webhook.module';
+import { RuleDataModule } from './rule-data/rule-data.module';
 
 
 const MODULES = [
@@ -20,7 +21,9 @@ const MODULES = [
     AccDocsUploadModule,
     AecDataModelModule,
     RuleEngineModule,
-    DmDiscoveryModule
+    DmDiscoveryModule,
+    AccWebhookModule,
+    RuleDataModule
 ]
 
 @Module({

@@ -6,3 +6,5 @@ export * from './auth/auth.module';
 export * from './aec-data-model/aec-data-model.module';
 export * from './rule-engine/rule-engine.module';
 export * from './dm-discovery/dm-discovery.module';
+export * from './acc-webhook/acc-webhook.module';
+export * from './rule-data/rule-data.module';

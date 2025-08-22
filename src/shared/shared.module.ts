@@ -11,6 +11,8 @@ import { HubsService } from "src/modules/hubs/hubs.service";
 import { Redis } from "ioredis";
 import { DmDiscoveryService } from "src/modules/dm-discovery/dm-discovery.service";
 import { AccWebhookService } from "src/modules/acc-webhook/acc-webhook.service";
+import { RuleDataService } from "src/modules/rule-data/rule-data.service";
+import { RuleDataHelperService } from "src/modules/rule-data/rule-data.helperService";
 
 const MODULES = [
     DbConnectionModule,
@@ -30,7 +32,9 @@ const SERVICES = [
     HubsService,
     Redis,
     DmDiscoveryService,
-    AccWebhookService
+    AccWebhookService,
+    RuleDataService,
+    RuleDataHelperService
 ]
 
 @Module({

@@ -4,3 +4,8 @@ export * from './document.entity';
 export * from './aps-token.entity';
 export * from './issue.entity';
 export * from './dm-discovery.entity';
+export * from './rule1.entity';
+export * from './rule2.entity';
+export * from './rule3.entity';
+export * from './rule4.entity';
+export * from './rule5.entity';
