@@ -5,3 +5,4 @@ export * from './user/user.module';
 export * from './auth/auth.module';
 export * from './aec-data-model/aec-data-model.module';
 export * from './rule-engine/rule-engine.module';
+export * from './dm-discovery/dm-discovery.module';

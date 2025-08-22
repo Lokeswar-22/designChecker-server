@@ -9,6 +9,7 @@ import { AecDataModelService } from "src/modules/aec-data-model/aec-data-model.s
 import { RuleEngineService } from "src/modules/rule-engine/rule-engine.service";
 import { HubsService } from "src/modules/hubs/hubs.service";
 import { Redis } from "ioredis";
+import { DmDiscoveryService } from "src/modules/dm-discovery/dm-discovery.service";
 
 const MODULES = [
     DbConnectionModule,
@@ -26,7 +27,8 @@ const SERVICES = [
     AecDataModelService,
     RuleEngineService,
     HubsService,
-    Redis
+    Redis,
+    DmDiscoveryService
 ]
 
 @Module({

@@ -6,7 +6,8 @@ import {
     UserModule,
     AccDocsUploadModule,
     AecDataModelModule,
-    RuleEngineModule
+    RuleEngineModule,
+    DmDiscoveryModule
 } from "./index";
 
 
@@ -18,7 +19,7 @@ const MODULES = [
     AccDocsUploadModule,
     AecDataModelModule,
     RuleEngineModule,
-
+    DmDiscoveryModule
 ]
 
 @Module({

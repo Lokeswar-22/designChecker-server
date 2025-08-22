@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ACCUser, User, Document, APSToken, Issue } from '../entities/index';
+import { ACCUser, User, Document, APSToken, Issue, DmDiscovery } from '../entities/index';
 import * as config from 'dotenv';
 
 config.config();
@@ -10,7 +10,8 @@ const entities = [
   ACCUser,
   Document,
   APSToken,
-  Issue
+  Issue,
+  DmDiscovery
 ]
 @Module({
   imports: [

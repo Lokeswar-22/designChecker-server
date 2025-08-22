@@ -35,28 +35,28 @@ export class HubsService {
   async getProjectIdByName(apsUserId: string, projectName: string): Promise<string> {
     const accessToken = await this.accAuthService.getValidAccessToken(apsUserId);
     if (!accessToken) throw new UnauthorizedException('Login required');
-  
+
     const hubs = await this.dataManagementClient.getHubs({ accessToken });
     if (!hubs?.data?.length) throw new NotFoundException('No hubs found for user');
-  
+
     for (const hub of hubs.data) {
       if (!hub.id) continue;
-    
+
       const projects = await this.dataManagementClient.getHubProjects(hub.id, { accessToken });
       if (!projects?.data?.length) continue;
-    
+
       const foundProject = projects.data.find(
         (project) => project?.attributes?.name === projectName
       );
-    
+
       if (foundProject) {
         return foundProject.id;
       }
     }
-      
+
     throw new NotFoundException(`Project with name "${projectName}" not found in any hub`);
   }
-  
+
 
 
   async getTopFolders(hubId: string, projectId: string, accUserId: string) {
@@ -181,7 +181,7 @@ export class HubsService {
           results { id name }
         }
       }`;
-  
+
     const ELEMENT_PROPERTIES_PAGE = `
       query ($elementId: ID!, $cursor: String, $limit: Int = 500) {
         elementAtTip(elementId: $elementId) {
@@ -197,28 +197,28 @@ export class HubsService {
           }
         }
       }`;
-  
+
     const allElementIds: string[] = [];
     const allElementsBasic: Record<string, { id: string; name: string }> = {};
     let cursor: string | null = null;
-  
+
     do {
       const variables: any = { elementGroupId, cursor, limit: 500 };
       if (propertyFilter) variables.filter = { query: propertyFilter };
-  
+
       const page = await this.queryGraphQL(ELEMENTS_PAGE, variables, accUserId);
       const block = page?.elementsByElementGroup;
       const results = block?.results ?? [];
-  
+
       for (const e of results) {
         allElementIds.push(e.id);
         allElementsBasic[e.id] = { id: e.id, name: e.name };
       }
       cursor = block?.pagination?.cursor ?? null;
     } while (cursor);
-  
+
     const BATCH_SIZE = 10;
-  
+
     const resultsFull: Array<{
       id: string;
       name: string;
@@ -228,38 +228,38 @@ export class HubsService {
         definition?: { units?: { name?: string } | null } | null;
       }>;
     }> = [];
-  
+
     for (let i = 0; i < allElementIds.length; i += BATCH_SIZE) {
       const slice = allElementIds.slice(i, i + BATCH_SIZE);
-  
+
       const batch = slice.map(async (elementId) => {
         let pcursor: string | null = null;
         const props: any[] = [];
-  
+
         do {
           const v = { elementId, cursor: pcursor, limit: 500 };
           const resp = await this.queryGraphQL(ELEMENT_PROPERTIES_PAGE, v, accUserId);
           const node = resp?.elementAtTip;
           const pblock = node?.properties;
-  
+
           if (pblock?.results?.length) props.push(...pblock.results);
           pcursor = pblock?.pagination?.cursor ?? null;
         } while (pcursor);
-  
+
         return {
           id: elementId,
           name: allElementsBasic[elementId]?.name ?? "",
           properties: props,
         };
       });
-  
+
       const batchOut = await Promise.all(batch);
       resultsFull.push(...batchOut);
     }
-  
+
     return resultsFull;
   }
-  
+
 
   async fetchPropertiesForRules(elementGroupId: string, accUserId: string, propertyFilter?: string): Promise<any>{
 
@@ -303,7 +303,7 @@ export class HubsService {
     return mappedResults;
   }
 
-  
+
 
   private convertValueToMM(prop: any): number | any {
     if (!prop.value || typeof prop.value !== 'number') return prop.value;
