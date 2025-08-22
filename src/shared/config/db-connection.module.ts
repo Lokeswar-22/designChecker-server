@@ -1,11 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ACCUser } from '../entities/acc-user.entity';
-import { User } from '../entities/user.entity';
+import { ACCUser, User, Document, APSToken, Issue } from '../entities/index';
 import * as config from 'dotenv';
-import { Document } from '../entities/document.entity';
-import { APSToken } from '../entities/aps-token.entity';
-import { Issue } from '../entities/issue.entity';
 
 config.config();
 

@@ -13,11 +13,11 @@ import { DataManagementClient } from '@aps_sdk/data-management';
 import { APSToken } from 'src/shared/entities/aps-token.entity';
 import { IssueService } from 'src/shared/services/issue.service';
 import { Issue } from 'src/shared/entities/issue.entity';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User, APSToken, Issue]),
-    HttpModule
+    SharedModule,
   ],
   controllers: [HubsController],
   providers: [
@@ -28,7 +28,7 @@ import { Issue } from 'src/shared/entities/issue.entity';
     RequestService,
     DataManagementClient,
     IssueService,
-    
+
   ],
   exports: [HubsService],
 })

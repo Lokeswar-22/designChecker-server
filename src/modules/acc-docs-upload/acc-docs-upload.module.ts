@@ -1,24 +1,19 @@
 import { Module } from '@nestjs/common';
 import { AccDocsUploadService } from './acc-docs-upload.service';
 import { AccDocsUploadController } from './acc-docs-upload.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ACCUser } from 'src/shared/entities/acc-user.entity';
-import { User } from 'src/shared/entities/user.entity';
 import { JWTService } from 'src/shared/services/jwt.service';
 import { UserService } from '../user/user.service';
 import { RequestService } from 'src/shared/services/request.service';
 import { MulterModule } from '@nestjs/platform-express';
 import { ACCAuthModule } from '../acc-auth/acc-auth.module';
-import { ACCAuthController } from '../acc-auth/acc-auth.controller';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { HttpModule } from '@nestjs/axios';
 import { CacheModule } from '@nestjs/cache-manager';
-import { APSToken } from 'src/shared/entities/aps-token.entity';
-import { Document } from 'src/shared/entities/document.entity';
+import { SharedModule } from 'src/shared/shared.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ACCUser, User, APSToken, Document]),
+    SharedModule,
     MulterModule.register({ limits: { fileSize: 500 * 1024 * 1024 } }),
     CacheModule.register(),
     ACCAuthModule,

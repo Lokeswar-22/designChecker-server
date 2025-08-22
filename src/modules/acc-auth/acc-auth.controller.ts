@@ -90,6 +90,8 @@ export class ACCAuthController {
     @Get('profile/:accUserId')
     async getProfile(@Param('accUserId') accUserId: string) {
         const tokenData = await this.accAuthService.refreshUserTokens(accUserId);
+        const profile = await this.accAuthService.getUserProfile(tokenData.accessToken);
+        return profile;
     }
 
     @Get('status')

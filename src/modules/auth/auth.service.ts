@@ -1,7 +1,6 @@
-import { User } from 'src/shared/entities/user.entity';
+import { User } from 'src/shared/entities/index';
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -12,8 +11,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RegisterResponseInterface } from 'src/shared/interfaces/auth/register-response.interface';
 import { JWTService } from 'src/shared/services/jwt.service';
 import { AccessTokenResponseInterface } from 'src/shared/interfaces/jwt/access-token-response.interface';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+
 @Injectable()
 export class AuthService {
 

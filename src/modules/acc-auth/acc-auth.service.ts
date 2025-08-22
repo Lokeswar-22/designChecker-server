@@ -3,10 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthenticationClient, ResponseType, Scopes } from '@aps_sdk/authentication';
 import { apsConfig } from '../../shared/config/aps.config';
-import { ACCUser } from '../../shared/entities/acc-user.entity';
-import { User } from 'src/shared/entities/user.entity';
+import { ACCUser, User, APSToken } from '../../shared/entities/index';
 import { RequestService } from 'src/shared/services/request.service';
-import { APSToken } from 'src/shared/entities/aps-token.entity';
 
 @Injectable()
 export class ACCAuthService {
@@ -150,11 +148,11 @@ export class ACCAuthService {
     async userCheckAcc(userID: number): Promise<{ isAccSynced: boolean; isTokenValid: boolean; accUserId?: string }> {
         const user = await this.userRepository.findOne({ where: { userID } });
         if (!user) throw new NotFoundException('User not found');
-        
+
         const isAccSynced = user.isAccSynced && !!user.accUserId;
-        
+
         let isTokenValid = false;
-        
+
         if (isAccSynced && user.accUserId) {
             try {
                 await this.getValidAccessToken(user.accUserId);
@@ -163,16 +161,16 @@ export class ACCAuthService {
                 isTokenValid = false;
             }
         }
-        
+
         const response: { isAccSynced: boolean; isTokenValid: boolean; accUserId?: string } = {
             isAccSynced,
             isTokenValid
         };
-        
+
         if (isAccSynced && isTokenValid && user.accUserId) {
             response.accUserId = user.accUserId;
         }
-        
+
         return response;
     }
 
@@ -261,7 +259,7 @@ export class ACCAuthService {
                 apsConfig.APS_CLIENT_SECRET,
                 [Scopes.ViewablesRead]
             );
-            
+
             return {
                 access_token: credentials.access_token,
                 expires_in: credentials.expires_in

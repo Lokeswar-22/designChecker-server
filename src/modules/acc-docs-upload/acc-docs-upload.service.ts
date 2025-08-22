@@ -4,7 +4,7 @@ import * as rax from 'retry-axios';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Document } from '../../shared/entities/document.entity';
+import { Document } from '../../shared/entities/index';
 
 interface CacheEntry {
   name: string;
@@ -20,7 +20,7 @@ interface CacheEntry {
 
 @Injectable()
 export class AccDocsUploadService {
-  private cache = new Map<string, CacheEntry>(); 
+  private cache = new Map<string, CacheEntry>();
 
   constructor(
     private readonly accAuth: ACCAuthService,
@@ -46,7 +46,7 @@ export class AccDocsUploadService {
     document.createdAt = createdAt;
 
     await this.documentRepository.save(document);
-    
+
     this.cache.set(accUserId, { name, size });
 
     const resp = await axios.post(
@@ -80,7 +80,7 @@ export class AccDocsUploadService {
     }
 
     const bt = new BinaryTransferClient(token);
-    const CHUNK_SIZE = 5 * 1024 * 1024; 
+    const CHUNK_SIZE = 5 * 1024 * 1024;
     const parts = Math.ceil(size / CHUNK_SIZE);
     const { uploadKey, urls } = await bt._getUploadUrls(bucketKey, objectKey, parts, 1);
     Object.assign(entry, { uploadKey, urls, chunkSize: CHUNK_SIZE });
