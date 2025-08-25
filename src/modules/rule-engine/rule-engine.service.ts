@@ -453,20 +453,21 @@ export class RuleEngineService {
         elementGroupId,
         accUserId,
       );
-      // const typeData = stairsData.res1;
       const instanceData = stairsData.res1;
 
-      const instanceLookupMap = new Map<string, typeof instanceData>();
+      // console.dir(instanceData, { depth: null });
 
-      instanceData.forEach((instance) => {
-        if (instance.name && instance.familyName) {
-          const key = `${instance.name}|${instance.familyName}`;
-          if (!instanceLookupMap.has(key)) {
-            instanceLookupMap.set(key, []);
-          }
-          instanceLookupMap.get(key)!.push(instance);
-        }
-      });
+      // const instanceLookupMap = new Map<string, typeof instanceData>();
+
+      // instanceData.forEach((instance) => {
+      //   if (instance.name && instance.familyName) {
+      //     const key = `${instance.name}|${instance.familyName}`;
+      //     if (!instanceLookupMap.has(key)) {
+      //       instanceLookupMap.set(key, []);
+      //     }
+      //     instanceLookupMap.get(key)!.push(instance);
+      //   }
+      // });
 
       const MAX_STAIR_RISER_HEIGHT_MM = 175;
       // const M_TO_MM_MULTIPLIER = 1000;
@@ -477,11 +478,13 @@ export class RuleEngineService {
         const stairRiserHeightMm = Math.round(
           stairsType.stairsMaxRiserHeight * 1000,
         );
-        console.log('SSS', stairRiserHeightMm);
 
         const isValid =
           stairRiserHeightMm != 0 &&
           stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
+
+        const elementIds =
+          !isValid && stairsType.elementId ? [stairsType.elementId] : [];
 
         const result = {
           typeId: stairsType.id,
@@ -489,20 +492,20 @@ export class RuleEngineService {
           familyName: stairsType.familyName,
           stairsMaxRiserHeight: Math.round(stairRiserHeightMm * 100) / 100,
           isValid,
-          elementIds: [],
+          elementIds,
         };
 
-        if (!isValid) {
-          const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
-          const matchingInstances = instanceLookupMap.get(lookupKey) || [];
+        // if (!isValid) {
+        // const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
+        // const matchingInstances = instanceLookupMap.get(lookupKey) || [];
 
-          // if (matchingInstances.length > 0) {
-          result.elementIds = matchingInstances.map(
-            (instance) => instance.elementId,
-          );
-          perfectMatches++;
-          // }
-        }
+        //   // if (matchingInstances.length > 0) {
+        //   result.elementIds = matchingInstances.map(
+        //     (instance) => instance.elementId,
+        //   );
+        //   perfectMatches++;
+        //   // }
+        // }
 
         return result;
       });
