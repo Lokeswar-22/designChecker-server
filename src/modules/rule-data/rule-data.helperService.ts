@@ -447,7 +447,8 @@ export class RuleDataHelperService {
   }
 
   async rule4(elementGroupId: string, accUserId: string) {
-    const propertyFilter = 'property.name.category==Stairs';
+    const propertyFilter =
+      "property.name.category==Stairs and 'property.name.Element Context'==Instance";
 
     type OutRow = {
       ruleId: string;
@@ -479,7 +480,7 @@ export class RuleDataHelperService {
         const pElementCtx = this.getProp(props, ['Element Context']);
         const pFamilyName = this.getProp(props, ['Family Name']);
         const pStairsMaxRiserHeight = this.getProp(props, [
-          'Maximum Riser Height',
+          'Actual Riser Height',
         ]);
         const pElementId = this.getProp(props, ['Revit Element ID']);
 

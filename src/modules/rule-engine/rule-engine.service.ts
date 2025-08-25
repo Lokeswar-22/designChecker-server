@@ -438,13 +438,13 @@ export class RuleEngineService {
     elementGroupId: string,
     accUserId: string,
   ): Promise<any> {
-    const stairsTypeData = await this.entityManager.query(
-      `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Type'`,
-    );
+    // const stairsTypeData = await this.entityManager.query(
+    //   `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Type'`,
+    // );
     const stairsInstanceData = await this.entityManager.query(
       `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance'`,
     );
-    return { res1: stairsTypeData, res2: stairsInstanceData };
+    return { res1: stairsInstanceData };
   }
 
   async executeRule4(elementGroupId: string, accUserId: string): Promise<any> {
@@ -453,8 +453,8 @@ export class RuleEngineService {
         elementGroupId,
         accUserId,
       );
-      const typeData = stairsData.res1;
-      const instanceData = stairsData.res2;
+      // const typeData = stairsData.res1;
+      const instanceData = stairsData.res1;
 
       const instanceLookupMap = new Map<string, typeof instanceData>();
 
@@ -473,11 +473,15 @@ export class RuleEngineService {
 
       let perfectMatches = 0;
 
-      const validationResults = typeData.map((stairsType) => {
+      const validationResults = instanceData.map((stairsType) => {
         const stairRiserHeightMm = Math.round(
           stairsType.stairsMaxRiserHeight * 1000,
         );
-        const isValid = stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
+        console.log('SSS', stairRiserHeightMm);
+
+        const isValid =
+          stairRiserHeightMm != 0 &&
+          stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
 
         const result = {
           typeId: stairsType.id,
@@ -492,12 +496,12 @@ export class RuleEngineService {
           const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
           const matchingInstances = instanceLookupMap.get(lookupKey) || [];
 
-          if (matchingInstances.length > 0) {
-            result.elementIds = matchingInstances.map(
-              (instance) => instance.elementId,
-            );
-            perfectMatches++;
-          }
+          // if (matchingInstances.length > 0) {
+          result.elementIds = matchingInstances.map(
+            (instance) => instance.elementId,
+          );
+          perfectMatches++;
+          // }
         }
 
         return result;
