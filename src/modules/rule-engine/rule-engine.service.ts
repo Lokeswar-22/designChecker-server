@@ -454,7 +454,7 @@ export class RuleEngineService {
     return roomInstance;
   }
 
-  async executeRule4(elementGroupId: string, accUserId: string): Promise<any> {
+  async executeRule5(elementGroupId: string, accUserId: string): Promise<any> {
     try {
       const instanceData = await this.getSavedRoomsData(
         elementGroupId,
@@ -605,7 +605,7 @@ export class RuleEngineService {
     }
   }
 
-  async executeRule5(elementGroupId: string, accUserId: string): Promise<any> {
+  async executeRule4(elementGroupId: string, accUserId: string): Promise<any> {
     try {
       const instanceData = await this.getSavedRoomsDataForRule6(
         elementGroupId,
