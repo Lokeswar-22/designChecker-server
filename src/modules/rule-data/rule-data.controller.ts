@@ -56,4 +56,20 @@ export class RuleDataController {
   ) {
     return await this.ruleDataHelperService.rule5(elementGroupId, accUserId);
   }
+
+  @Get('getRuleData6/:elementGroupId')
+  async getRuleData6(
+    @Param('elementGroupId') elementGroupId: string,
+    @Query('accUserId') accUserId: string,
+  ) {
+    return await this.ruleDataHelperService.rule6(elementGroupId, accUserId);
+  }
+
+  // @Get('processAllRules/:elementGroupId')
+  // async processAllRules(
+  //   @Param('elementGroupId') elementGroupId: string,
+  //   @Query('accUserId') accUserId: string,
+  // ) {
+  //   return await this.ruleDataHelperService.processAllRules(elementGroupId, accUserId);
+  // }
 }

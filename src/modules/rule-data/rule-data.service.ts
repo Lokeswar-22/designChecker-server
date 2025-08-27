@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { Rule1, Rule2, Rule3, Rule4, Rule5 } from '../../shared/entities/index';
+import {
+  Rule1,
+  Rule2,
+  Rule3,
+  Rule4,
+  Rule5,
+  Rule6,
+} from '../../shared/entities/index';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 import { RuleDataHelperService } from './rule-data.helperService';
 
@@ -21,6 +28,8 @@ export class RuleDataService {
     private readonly rule4Repository: Repository<Rule4>,
     @InjectRepository(Rule5)
     private readonly rule5Repository: Repository<Rule5>,
+    @InjectRepository(Rule6)
+    private readonly rule6Repository: Repository<Rule6>,
   ) {}
 
   //   async checkRuleData(accUserId: string, elementGroupId: string) {
@@ -83,12 +92,13 @@ export class RuleDataService {
         return { message: 'User authentication failed' };
       }
 
-      const [data1, data2, data3, data4, data5] = await Promise.all([
+      const [data1, data2, data3, data4, data5, data6] = await Promise.all([
         this.rule1Repository.find({ where: { accUserId, elementGroupId } }),
         this.rule2Repository.find({ where: { accUserId, elementGroupId } }),
         this.rule3Repository.find({ where: { accUserId, elementGroupId } }),
         this.rule4Repository.find({ where: { accUserId, elementGroupId } }),
         this.rule5Repository.find({ where: { accUserId, elementGroupId } }),
+        this.rule6Repository.find({ where: { accUserId, elementGroupId } }),
       ]);
 
       const ruleChecks = {
@@ -97,6 +107,7 @@ export class RuleDataService {
         Rule3: data3 && data3.length > 0,
         Rule4: data4 && data4.length > 0,
         Rule5: data5 && data5.length > 0,
+        Rule6: data6 && data6.length > 0,
       };
 
       // Collect failed rules
@@ -105,7 +116,7 @@ export class RuleDataService {
         .map(([rule]) => rule);
 
       if (failedRules.length === 0) {
-        return { message: 'All 5 rule data available' };
+        return { message: 'All 6 rule data available' };
       } else {
         return { message: `${failedRules.join(', ')} has no data available` };
       }

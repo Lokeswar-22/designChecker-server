@@ -434,78 +434,126 @@ export class RuleEngineService {
     }
   }
 
-  async getSavedStairsData(
+  async getSavedRoomsData(
     elementGroupId: string,
     accUserId: string,
   ): Promise<any> {
-    // const stairsTypeData = await this.entityManager.query(
-    //   `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Type'`,
-    // );
-    const stairsInstanceData = await this.entityManager.query(
-      `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance'`,
+    const roomInstance = await this.entityManager.query(
+      `SELECT * FROM rule5 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance' AND area != '' AND perimeter != ''`,
     );
-    return { res1: stairsInstanceData };
+    return roomInstance;
+  }
+
+  async getSavedRoomsDataForRule6(
+    elementGroupId: string,
+    accUserId: string,
+  ): Promise<any> {
+    const roomInstance = await this.entityManager.query(
+      `SELECT * FROM rule6 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance' AND area != '' AND perimeter != ''`,
+    );
+    return roomInstance;
   }
 
   async executeRule4(elementGroupId: string, accUserId: string): Promise<any> {
     try {
-      const stairsData = await this.getSavedStairsData(
+      const instanceData = await this.getSavedRoomsData(
         elementGroupId,
         accUserId,
       );
-      const instanceData = stairsData.res1;
 
-      // console.dir(instanceData, { depth: null });
+      const calculateRectangleDimensions = (
+        area: number,
+        perimeter: number,
+      ): { length: number; width: number } | null => {
+        try {
+          const halfPerimeter = perimeter / 2;
+          const discriminant = Math.pow(halfPerimeter, 2) - 4 * area;
 
-      // const instanceLookupMap = new Map<string, typeof instanceData>();
+          if (discriminant < 0) {
+            return null; // Invalid rectangle
+          }
 
-      // instanceData.forEach((instance) => {
-      //   if (instance.name && instance.familyName) {
-      //     const key = `${instance.name}|${instance.familyName}`;
-      //     if (!instanceLookupMap.has(key)) {
-      //       instanceLookupMap.set(key, []);
-      //     }
-      //     instanceLookupMap.get(key)!.push(instance);
-      //   }
-      // });
+          const sqrtDiscriminant = Math.sqrt(discriminant);
+          const dim1 = (halfPerimeter + sqrtDiscriminant) / 2;
+          const dim2 = (halfPerimeter - sqrtDiscriminant) / 2;
 
-      const MAX_STAIR_RISER_HEIGHT_MM = 175;
-      // const M_TO_MM_MULTIPLIER = 1000;
+          // Return length (larger) and width (smaller)
+          return {
+            length: Math.max(dim1, dim2),
+            width: Math.min(dim1, dim2),
+          };
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const MIN_WIDTH_MM = 1200;
+      const MIN_LENGTH_MM = 1400;
+      const M_TO_MM_MULTIPLIER = 1000;
 
       let perfectMatches = 0;
+      let processedCount = 0;
 
-      const validationResults = instanceData.map((stairsType) => {
-        const stairRiserHeightMm = Math.round(
-          stairsType.stairsMaxRiserHeight * 1000,
-        );
+      const validationResults: any[] = instanceData.map((roomInstance) => {
+        const area = parseFloat(roomInstance.area);
+        const perimeter = parseFloat(roomInstance.perimeter);
 
-        const isValid =
-          stairRiserHeightMm != 0 &&
-          stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
+        // Calculate rectangle dimensions
+        const dimensions = calculateRectangleDimensions(area, perimeter);
 
-        const elementIds =
-          !isValid && stairsType.elementId ? [stairsType.elementId] : [];
+        let isValid = true;
+        let failureReasons: string[] = [];
+        let lengthMm = 0;
+        let widthMm = 0;
+
+        if (!dimensions) {
+          isValid = false;
+          failureReasons.push(
+            'Invalid rectangle dimensions - cannot calculate from area and perimeter',
+          );
+        } else {
+          lengthMm =
+            Math.round(dimensions.length * M_TO_MM_MULTIPLIER * 100) / 100;
+          widthMm =
+            Math.round(dimensions.width * M_TO_MM_MULTIPLIER * 100) / 100;
+
+          // Validate width
+          if (widthMm < MIN_WIDTH_MM) {
+            isValid = false;
+            failureReasons.push(
+              `Width ${widthMm}mm is less than minimum required ${MIN_WIDTH_MM}mm`,
+            );
+          }
+
+          // Validate length
+          if (lengthMm < MIN_LENGTH_MM) {
+            isValid = false;
+            failureReasons.push(
+              `Length ${lengthMm}mm is less than minimum required ${MIN_LENGTH_MM}mm`,
+            );
+          }
+        }
 
         const result = {
-          typeId: stairsType.id,
-          typeName: stairsType.name,
-          familyName: stairsType.familyName,
-          stairsMaxRiserHeight: Math.round(stairRiserHeightMm * 100) / 100,
-          isValid,
-          elementIds,
+          instanceId: roomInstance.id,
+          instanceName: roomInstance.name,
+          // FIXED: Use correct property name (camelCase)
+          familyName: roomInstance.familyName,
+          area: area,
+          perimeter: perimeter,
+          lengthMm: lengthMm,
+          widthMm: widthMm,
+          isValid: isValid,
+          failureReasons: failureReasons,
+          elementIds: [] as String[],
         };
 
-        // if (!isValid) {
-        // const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
-        // const matchingInstances = instanceLookupMap.get(lookupKey) || [];
-
-        //   // if (matchingInstances.length > 0) {
-        //   result.elementIds = matchingInstances.map(
-        //     (instance) => instance.elementId,
-        //   );
-        //   perfectMatches++;
-        //   // }
-        // }
+        if (!isValid) {
+          processedCount++;
+          // FIXED: Use correct property name (camelCase)
+          result.elementIds = [roomInstance.elementId];
+          perfectMatches++;
+        }
 
         return result;
       });
@@ -532,11 +580,11 @@ export class RuleEngineService {
 
       const failureBreakdown: Record<string, number> = {};
       failedWithElements.forEach((result) => {
-        failureBreakdown[result.typeName] = result.elementIds.length;
+        failureBreakdown[result.instanceName] = result.elementIds.length;
       });
 
       const summary = {
-        totalTypesChecked: validationResults.length,
+        totalInstancesChecked: filteredValidationResults.length,
         failedValidations: failedResults.length,
         failedWithElementIds: failedWithElements.length,
         failedWithoutElementIds: failedWithoutElements.length,
@@ -544,7 +592,7 @@ export class RuleEngineService {
         uniqueElementIds: uniqueElementIds.size,
         duplicateElementIds: duplicateCount,
         perfectMatchesFound: perfectMatches,
-        totalInstancesChecked: instanceData.length,
+        totalInstancesProcessed: instanceData.length,
       };
 
       return {
@@ -557,19 +605,9 @@ export class RuleEngineService {
     }
   }
 
-  async getSavedRoomsData(
-    elementGroupId: string,
-    accUserId: string,
-  ): Promise<any> {
-    const roomInstance = await this.entityManager.query(
-      `SELECT * FROM rule5 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance' AND area != '' AND perimeter != ''`,
-    );
-    return roomInstance;
-  }
-
   async executeRule5(elementGroupId: string, accUserId: string): Promise<any> {
     try {
-      const instanceData = await this.getSavedRoomsData(
+      const instanceData = await this.getSavedRoomsDataForRule6(
         elementGroupId,
         accUserId,
       );
@@ -706,6 +744,129 @@ export class RuleEngineService {
         duplicateElementIds: duplicateCount,
         perfectMatchesFound: perfectMatches,
         totalInstancesProcessed: instanceData.length,
+      };
+
+      return {
+        validationResults: filteredValidationResults,
+        summary,
+        failureBreakdown,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getSavedStairsData(
+    elementGroupId: string,
+    accUserId: string,
+  ): Promise<any> {
+    // const stairsTypeData = await this.entityManager.query(
+    //   `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Type'`,
+    // );
+    const stairsInstanceData = await this.entityManager.query(
+      `SELECT * FROM rule4 WHERE accUserId = '${accUserId}' AND elementGroupId = '${elementGroupId}' AND elementContext = 'Instance'`,
+    );
+    return { res1: stairsInstanceData };
+  }
+
+  async executeRule6(elementGroupId: string, accUserId: string): Promise<any> {
+    try {
+      const stairsData = await this.getSavedStairsData(
+        elementGroupId,
+        accUserId,
+      );
+      const instanceData = stairsData.res1;
+
+      // console.dir(instanceData, { depth: null });
+
+      // const instanceLookupMap = new Map<string, typeof instanceData>();
+
+      // instanceData.forEach((instance) => {
+      //   if (instance.name && instance.familyName) {
+      //     const key = `${instance.name}|${instance.familyName}`;
+      //     if (!instanceLookupMap.has(key)) {
+      //       instanceLookupMap.set(key, []);
+      //     }
+      //     instanceLookupMap.get(key)!.push(instance);
+      //   }
+      // });
+
+      const MAX_STAIR_RISER_HEIGHT_MM = 175;
+      // const M_TO_MM_MULTIPLIER = 1000;
+
+      let perfectMatches = 0;
+
+      const validationResults = instanceData.map((stairsType) => {
+        const stairRiserHeightMm = Math.round(
+          stairsType.stairsMaxRiserHeight * 1000,
+        );
+
+        const isValid =
+          stairRiserHeightMm != 0 &&
+          stairRiserHeightMm <= MAX_STAIR_RISER_HEIGHT_MM;
+
+        const elementIds =
+          !isValid && stairsType.elementId ? [stairsType.elementId] : [];
+
+        const result = {
+          typeId: stairsType.id,
+          typeName: stairsType.name,
+          familyName: stairsType.familyName,
+          stairsMaxRiserHeight: Math.round(stairRiserHeightMm * 100) / 100,
+          isValid,
+          elementIds,
+        };
+
+        // if (!isValid) {
+        // const lookupKey = `${stairsType.name}|${stairsType.familyName}`;
+        // const matchingInstances = instanceLookupMap.get(lookupKey) || [];
+
+        //   // if (matchingInstances.length > 0) {
+        //   result.elementIds = matchingInstances.map(
+        //     (instance) => instance.elementId,
+        //   );
+        //   perfectMatches++;
+        //   // }
+        // }
+
+        return result;
+      });
+
+      const filteredValidationResults = validationResults.filter(
+        (result) => result.isValid || result.elementIds.length > 0,
+      );
+
+      const failedResults = filteredValidationResults.filter((r) => !r.isValid);
+      const failedWithElements = failedResults.filter(
+        (r) => r.elementIds.length > 0,
+      );
+      const failedWithoutElements = failedResults.filter(
+        (r) => r.elementIds.length === 0,
+      );
+      const totalFailedElements = failedResults.reduce(
+        (sum, r) => sum + r.elementIds.length,
+        0,
+      );
+
+      const allElementIds = failedResults.flatMap((r) => r.elementIds);
+      const uniqueElementIds = new Set(allElementIds);
+      const duplicateCount = allElementIds.length - uniqueElementIds.size;
+
+      const failureBreakdown: Record<string, number> = {};
+      failedWithElements.forEach((result) => {
+        failureBreakdown[result.typeName] = result.elementIds.length;
+      });
+
+      const summary = {
+        totalTypesChecked: validationResults.length,
+        failedValidations: failedResults.length,
+        failedWithElementIds: failedWithElements.length,
+        failedWithoutElementIds: failedWithoutElements.length,
+        totalFailedElementInstances: totalFailedElements,
+        uniqueElementIds: uniqueElementIds.size,
+        duplicateElementIds: duplicateCount,
+        perfectMatchesFound: perfectMatches,
+        totalInstancesChecked: instanceData.length,
       };
 
       return {

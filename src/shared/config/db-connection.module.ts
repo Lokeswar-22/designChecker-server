@@ -1,7 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ACCUser, User, Document, APSToken, Issue, DmDiscovery, Rule1, Rule2, Rule3, Rule4, Rule5 } from '../entities/index';
 import * as config from 'dotenv';
+import {
+  ACCUser,
+  APSToken,
+  DmDiscovery,
+  Document,
+  Issue,
+  Rule1,
+  Rule2,
+  Rule3,
+  Rule4,
+  Rule5,
+  Rule6,
+  User,
+} from '../entities/index';
 
 config.config();
 
@@ -16,8 +29,9 @@ const entities = [
   Rule2,
   Rule3,
   Rule4,
-  Rule5
-]
+  Rule5,
+  Rule6,
+];
 @Module({
   imports: [
     TypeOrmModule.forRoot({
@@ -41,8 +55,8 @@ const entities = [
         connectionTimeoutMillis: 50000,
       },
     }),
-    TypeOrmModule.forFeature(entities)
+    TypeOrmModule.forFeature(entities),
   ],
-  exports: [TypeOrmModule]
+  exports: [TypeOrmModule],
 })
-export class DbConnectionModule { }
+export class DbConnectionModule {}

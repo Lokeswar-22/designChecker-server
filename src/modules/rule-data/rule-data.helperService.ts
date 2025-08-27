@@ -3,7 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { Repository } from 'typeorm';
-import { Rule1, Rule2, Rule3, Rule4, Rule5 } from '../../shared/entities/index';
+import {
+  Rule1,
+  Rule2,
+  Rule3,
+  Rule4,
+  Rule5,
+  Rule6,
+} from '../../shared/entities/index';
 import { ACCAuthService } from '../acc-auth/acc-auth.service';
 
 @Injectable()
@@ -23,6 +30,8 @@ export class RuleDataHelperService {
     private readonly rule4Repository: Repository<Rule4>,
     @InjectRepository(Rule5)
     private readonly rule5Repository: Repository<Rule5>,
+    @InjectRepository(Rule6)
+    private readonly rule6Repository: Repository<Rule6>,
   ) {}
 
   private async queryGraphQL(
@@ -607,9 +616,99 @@ export class RuleDataHelperService {
     return { message: 'Rule5 data has been saved successfully' };
   }
 
+  async rule6(elementGroupId: string, accUserId: string) {
+    const propertyFilter = 'property.name.category==Rooms';
+
+    type OutRow = {
+      id: string;
+      name: string;
+      elementName?: string;
+      elementContext?: any;
+      area?: number;
+      perimeter?: number;
+      revitElementId?: string | number;
+      familyName?: string;
+    };
+
+    const resultsOut: OutRow[] = [];
+    let cursor: string | null = null;
+
+    do {
+      const block = await this.fetchPageWithRetryRuleV2(
+        elementGroupId,
+        propertyFilter,
+        cursor,
+        accUserId,
+      );
+
+      const pageItems = block?.results ?? [];
+      for (const el of pageItems) {
+        const elName = String(el?.name ?? '');
+        // Post-filter: For rooms minimum dimensions, we want all rooms
+        // No specific filtering needed for this rule
+        if (!(this.hasLift(elName) && this.hasLobby(elName))) continue;
+
+        const props = el?.properties?.results ?? [];
+
+        const pElementName = this.getProp(props, [
+          'Element Name',
+          'Room Name',
+          'Name',
+          'Type Name',
+        ]);
+        const pElementCtx = this.getProp(props, [
+          'Element Context',
+          'Context',
+          'Category',
+        ]);
+        const pFamilyName = this.getProp(props, ['Family Name']);
+        const pArea = this.getProp(props, ['Area', 'Room Area']);
+        const pPerimeter = this.getProp(props, ['Perimeter', 'Room Perimeter']);
+        const pRevitId = this.getProp(props, [
+          'Element Id',
+          'Revit Element ID',
+          'RevitElementId',
+        ]);
+
+        resultsOut.push({
+          id: el.id,
+          name: elName,
+          elementName: pElementName?.value ?? undefined,
+          elementContext: pElementCtx?.value ?? undefined,
+          area: this.toNum(pArea?.value),
+          perimeter: this.toNum(pPerimeter?.value),
+          revitElementId: pRevitId?.value,
+          familyName: pFamilyName?.value ?? undefined,
+        });
+      }
+
+      cursor = block?.pagination?.cursor ?? null;
+    } while (cursor);
+
+    const entities: Rule6[] = resultsOut.map((item) =>
+      this.rule6Repository.create({
+        ruleId: item.id,
+        elementGroupId: elementGroupId,
+        elementId: item.revitElementId?.toString() ?? '',
+        name: item.name ?? '',
+        elementName: item.elementName ?? '',
+        elementContext: item.elementContext ?? '',
+        area: item.area?.toString() ?? '',
+        perimeter: item.perimeter?.toString() ?? '',
+        revitElementId: item.revitElementId?.toString() ?? '',
+        familyName: item.familyName ?? '',
+        accUserId: accUserId,
+        createdAt: new Date(),
+      }),
+    );
+
+    await this.rule6Repository.save(entities, { chunk: this.SAVE_CHUNK_SIZE });
+    return { message: 'Rule6 data has been saved successfully' };
+  }
+
   // Convenience method to run all rules at once
   // async processAllRules(elementGroupId: string, accUserId: string) {
-  //   const results = [];
+  //   const results: any[] = [];
 
   //   try {
   //     console.log('Processing Rule 1...');
@@ -632,9 +731,13 @@ export class RuleDataHelperService {
   //     const rule5Result = await this.rule5(elementGroupId, accUserId);
   //     results.push({ rule: 'Rule5', ...rule5Result });
 
+  //     console.log('Processing Rule 6...');
+  //     const rule6Result = await this.rule6(elementGroupId, accUserId);
+  //     results.push({ rule: 'Rule6', ...rule6Result });
+
   //     return {
-  //       message: 'All rules processed successfully',
-  //       results
+  //       message: 'All 6 rules processed successfully',
+  //       results,
   //     };
   //   } catch (error) {
   //     console.error('Error processing rules:', error);

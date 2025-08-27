@@ -64,4 +64,14 @@ export class RuleEngineController {
       body.accUserId,
     );
   }
+
+  @Post('rule6')
+  async rule6(
+    @Body() body: { elementGroupId: string; accUserId: string },
+  ): Promise<ValidationResponse> {
+    return this.ruleEngineService.executeRule6(
+      body.elementGroupId,
+      body.accUserId,
+    );
+  }
 }
