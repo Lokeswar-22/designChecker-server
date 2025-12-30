@@ -22,7 +22,7 @@ export class ACCUser extends BaseEntity {
     @Column({ type: 'text' })
     refreshToken: string;
 
-    @Column({ type: 'datetimeoffset' })
+    @Column({ type: 'timestamptz' })
     expiresAt: Date;
 
     @OneToOne(() => User, (user: User) => user.userID, { nullable: true })

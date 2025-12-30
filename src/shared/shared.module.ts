@@ -8,7 +8,7 @@ import { AccDocsUploadService } from "src/modules/acc-docs-upload/acc-docs-uploa
 import { AecDataModelService } from "src/modules/aec-data-model/aec-data-model.service";
 import { RuleEngineService } from "src/modules/rule-engine/rule-engine.service";
 import { HubsService } from "src/modules/hubs/hubs.service";
-import { Redis } from "ioredis";
+// import { Redis } from "ioredis";
 import { DmDiscoveryService } from "src/modules/dm-discovery/dm-discovery.service";
 import { AccWebhookService } from "src/modules/acc-webhook/acc-webhook.service";
 import { RuleDataService } from "src/modules/rule-data/rule-data.service";
@@ -30,7 +30,7 @@ const SERVICES = [
     AecDataModelService,
     RuleEngineService,
     HubsService,
-    Redis,
+    // Redis,
     DmDiscoveryService,
     AccWebhookService,
     RuleDataService,

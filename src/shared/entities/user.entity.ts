@@ -34,20 +34,20 @@ export class User extends TypeOrmBaseEntity {
   @JoinColumn({ name: 'createdBy' })
   createdBy: User;
 
-  @CreateDateColumn({ type: 'datetimeoffset', select: false })
+  @CreateDateColumn({ type: 'timestamptz', select: false })
   createdAt: Date;
 
   @ManyToOne(() => User, (user: User) => user.userID, { nullable: true })
   @JoinColumn({ name: 'modifiedBy' })
   modifiedBy: User;
 
-  @UpdateDateColumn({ type: 'datetimeoffset', nullable: true, select: false })
+  @UpdateDateColumn({ type: 'timestamptz', nullable: true, select: false })
   modifiedAt: Date;
 
-  @Column({ type: 'datetimeoffset', nullable: true, select: false })
+  @Column({ type: 'timestamptz', nullable: true, select: false })
   deletedAt: Date;
 
-  @Column({ type: 'bit', nullable: true, default: false })
+  @Column({ type: 'boolean', nullable: true, default: false })
   isAccSynced: boolean;
 
   @Column({ nullable: true })

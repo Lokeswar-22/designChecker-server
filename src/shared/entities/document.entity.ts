@@ -5,27 +5,27 @@ export class Document {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'nvarchar', length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'nvarchar', length: 20 })
+  @Column({ type: 'varchar', length: 20 })
   extension: string;
 
   @Column({ type: 'bigint' })
   size: number;
 
-  @Column({ type: 'nvarchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   mimetype: string;
 
-  @Column({ type: 'nvarchar', length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   hubId: string;
 
-  @Column({ type: 'nvarchar', length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   projectId: string;
 
-  @Column({ type: 'nvarchar', length: 255 })
+  @Column({ type: 'varchar', length: 255 })
   folderId: string;
 
-  @CreateDateColumn({ type: 'datetime2' })
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }

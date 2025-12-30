@@ -13,16 +13,16 @@ import {
     @JoinColumn({ name: 'createdBy' })
     createdBy: User;
 
-    @CreateDateColumn({ type: 'datetimeoffset' })
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
     @ManyToOne(() => User, (user: User) => user.userID, { nullable: true })
     @JoinColumn({ name: 'modifiedBy' })
     modifiedBy: User;
 
-    @UpdateDateColumn({ type: 'datetimeoffset', nullable: true })
+    @UpdateDateColumn({ type: 'timestamptz', nullable: true })
     modifiedAt: Date;
 
-    @Column({ type: 'datetimeoffset', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     deletedAt: Date;
   }

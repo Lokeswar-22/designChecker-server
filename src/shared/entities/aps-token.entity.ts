@@ -5,7 +5,7 @@ export class APSToken {
     @PrimaryGeneratedColumn()
     apsTokenID: number;
 
-    @Column({ type: 'nvarchar', length: 'max', nullable: true })
+    @Column({ type: 'text', nullable: true })
     accUserId: string;
 
     @Column({ type: 'text', nullable: false })
@@ -14,7 +14,7 @@ export class APSToken {
     @Column({ type: 'text', nullable: false })
     refreshToken: string;
 
-    @Column({ type: 'datetimeoffset', nullable: false })
+    @Column({ type: 'timestamptz', nullable: false })
     expiresAt: Date;
 
     @CreateDateColumn()
